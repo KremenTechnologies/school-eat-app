@@ -6,7 +6,9 @@ install:
 run: install
 	uv run --env-file .env uvicorn app.main:app --reload --port 8000
 
-# Uses TEST_DATABASE_URL if set, otherwise DATABASE_URL from .env.
-# WARNING: the test fixture drops and recreates all tables.
+# Needs a THROWAWAY Postgres — the fixture drops & recreates every table.
+# Never point this at the production DB in .env.
+#   TEST_DATABASE_URL=postgresql://postgres:pg@localhost:5433/t make test
 test: install
-	uv run --env-file .env pytest -q
+	@test -n "$$TEST_DATABASE_URL" || { echo "set TEST_DATABASE_URL to a throwaway Postgres"; exit 1; }
+	TEST_DATABASE_URL="$$TEST_DATABASE_URL" SMS_DEBUG=1 SESSION_SECRET=test uv run pytest -q

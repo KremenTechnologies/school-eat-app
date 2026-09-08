@@ -39,9 +39,9 @@
 
 `make run` (= `uv run --env-file .env uvicorn app.main:app --reload`), `make test`, `make install`.
 
-`.env` (gitignored, справжній) вже вказує на спільну dev-базу `opencity.psql.tools:10051` / `school_eat_app_db`. Той сервер **відхиляє SSL** → у `DATABASE_URL` без `sslmode=require`. `.env.example` — плейсхолдери. Лапки на кожному значенні обов'язкові (парсер uv).
+⚠️ **`.env` `DATABASE_URL` — це ПРОД-база** (`opencity.psql.tools:10051` / `school_eat_app_db`). Не чистити, не сідити, **не ганяти проти неї `make test`** (фікстура дропає всі таблиці). Схема й сіди там уже застосовані один раз. Сервер відхиляє SSL → без `sslmode=require`. `.env.example` — плейсхолдери. Лапки на кожному значенні (парсер uv).
 
-`make test` дропає й перестворює всі таблиці в базі з `.env` (або `TEST_DATABASE_URL`), тож після нього треба перезасіяти: `uv run --env-file .env python -c "from app import db; db.pool.open(); db.init_schema(); db.seed_developers()"`.
+Для тестів — окрема одноразова база: `TEST_DATABASE_URL=postgresql://... make test` (напр. `docker run -d -e POSTGRES_PASSWORD=pg -e POSTGRES_DB=t -p 5433:5432 postgres:16-alpine`).
 
 ## Репозиторій
 
