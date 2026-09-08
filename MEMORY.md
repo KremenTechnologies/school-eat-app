@@ -36,11 +36,11 @@
 
 ## Локальний запуск
 
-```bash
-uv sync
-uv run --env-file .env uvicorn app.main:app --port 8000
-```
-`.env` (див. `.env.example`) — **лапки на кожному значенні** (парсер uv не любить не-ASCII без лапок). Потрібен Postgres: `docker run -d --name pg -e POSTGRES_PASSWORD=pg -e POSTGRES_DB=school_eat -p 5433:5432 postgres:16-alpine`.
+`make run` (= `uv run --env-file .env uvicorn app.main:app --reload`), `make test`, `make install`.
+
+`.env` (gitignored, справжній) вже вказує на спільну dev-базу `opencity.psql.tools:10051` / `school_eat_app_db`. Той сервер **відхиляє SSL** → у `DATABASE_URL` без `sslmode=require`. `.env.example` — плейсхолдери. Лапки на кожному значенні обов'язкові (парсер uv).
+
+`make test` дропає й перестворює всі таблиці в базі з `.env` (або `TEST_DATABASE_URL`), тож після нього треба перезасіяти: `uv run --env-file .env python -c "from app import db; db.pool.open(); db.init_schema(); db.seed_developers()"`.
 
 ## Репозиторій
 

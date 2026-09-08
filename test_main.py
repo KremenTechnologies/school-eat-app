@@ -8,11 +8,16 @@ import pytest
 
 os.environ.setdefault("SESSION_SECRET", "test")
 os.environ.setdefault("SMS_DEBUG", "1")
-os.environ.setdefault("DEV1_PHONE", "+380670000001")
-os.environ.setdefault("DEV1_NAME", "Тест Розробник")
+# the fixture seeds its own developer; ignore any real DEV* from .env
+os.environ["DEV1_PHONE"] = "+380670000001"
+os.environ["DEV1_NAME"] = "Тест Розробник"
+os.environ.pop("DEV2_PHONE", None)
+os.environ.pop("DEV2_NAME", None)
 
-if not os.environ.get("DATABASE_URL"):
-    pytest.skip("set DATABASE_URL to a throwaway Postgres to run", allow_module_level=True)
+_test_db = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if not _test_db:
+    pytest.skip("set TEST_DATABASE_URL (or DATABASE_URL) to a throwaway Postgres", allow_module_level=True)
+os.environ["DATABASE_URL"] = _test_db  # the fixture drops & recreates every table here
 
 from fastapi.testclient import TestClient  # noqa: E402
 
