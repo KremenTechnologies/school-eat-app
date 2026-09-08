@@ -50,8 +50,12 @@ def test_seed_and_name_login(client):
 
 def test_sms_login(client):
     assert client.post("/api/login/sms/request", json={"phone": "380670000001"}).status_code == 200
+    # second request within the 5-min window is rejected
+    assert client.post("/api/login/sms/request", json={"phone": "380670000001"}).status_code == 429
     with db.pool.connection() as conn:
         code = conn.execute("select code from login_codes").fetchone()["code"]
+    assert client.post("/api/login/sms/verify",
+                       json={"phone": "380670000001", "code": "000000"}).status_code == 400
     r = client.post("/api/login/sms/verify", json={"phone": "380670000001", "code": code})
     assert r.status_code == 200 and r.json()["role"] == "developer"
 

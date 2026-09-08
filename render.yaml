@@ -18,3 +18,11 @@ services:
         sync: false
       - key: DEV2_NAME
         sync: false
+      - key: KYIVSTAR_SMS_ENABLED
+        value: "true"
+      - key: KYIVSTAR_CLIENT_ID
+        sync: false
+      - key: KYIVSTAR_CLIENT_SECRET
+        sync: false
+      - key: KYIVSTAR_SENDER
+        sync: false
