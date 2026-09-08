@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Журнал відвідування та заявки на харчування</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF7F2;
+    --surface:#FFFFFF;
+    --ink:#1F2A37;
+    --ink-soft:#5B6472;
+    --navy:#1E3A5F;
+    --navy-deep:#152A45;
+    --teal:#3F7566;
+    --teal-soft:#E7F0EC;
+    --rust:#A8442E;
+    --rust-soft:#F5E7E2;
+    --line:#DCD5C6;
+    --line-soft:#EAE5D9;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    font-size:15px;
+    line-height:1.5;
+  }
+  h1,h2,h3,h4{font-family:'IBM Plex Serif', Georgia, serif; margin:0; color:var(--navy-deep);}
+  .app-shell{max-width:1080px; margin:0 auto; padding:28px 20px 80px;}
+  header.top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:2px solid var(--navy); padding-bottom:16px; margin-bottom:16px;
+    flex-wrap:wrap; gap:8px;
+  }
+  header.top h1{font-size:22px; letter-spacing:.2px;}
+  header.top p{margin:4px 0 0; color:var(--ink-soft); font-size:13.5px;}
+  .user-bar{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;
+    background:var(--teal-soft); border:1px solid var(--line); border-radius:4px;
+    padding:8px 14px; margin-bottom:18px; font-size:13.5px;
+  }
+  .user-bar .who strong{color:var(--navy-deep);}
+  .user-bar button{background:transparent; border:1px solid var(--navy); color:var(--navy); border-radius:4px; padding:5px 12px; font-size:13px; font-weight:600; cursor:pointer;}
+  .user-bar button:hover{background:#fff;}
+  .role-tag{display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:10px; background:var(--navy); color:#fff; margin-left:8px; vertical-align:middle;}
+  .role-tag.admin{background:var(--teal);}
+  .role-tag.teacher{background:var(--ink-soft);}
+  nav.tabs{display:flex; gap:6px; margin-bottom:24px; flex-wrap:wrap;}
+  nav.tabs button{
+    font-family:inherit; font-size:14px; font-weight:600; color:var(--ink-soft);
+    background:transparent; border:1px solid transparent; border-bottom:2px solid transparent;
+    padding:9px 14px; cursor:pointer; border-radius:4px 4px 0 0;
+  }
+  nav.tabs button.active{color:var(--navy-deep); border-bottom:2px solid var(--navy);}
+  nav.tabs button:hover:not(.active){background:var(--line-soft);}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:22px; margin-bottom:18px;}
+  .card h2{font-size:17px; margin-bottom:4px;}
+  .card h3{font-size:14px; margin:18px 0 4px;}
+  .card .hint{color:var(--ink-soft); font-size:13px; margin-bottom:16px;}
+  .field-row{display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px;}
+  .field{display:flex; flex-direction:column; gap:5px; flex:1; min-width:150px;}
+  .field.narrow{flex:0 0 130px; min-width:110px;}
+  .field label{font-size:12.5px; font-weight:600; color:var(--ink-soft);}
+  .field input[type=text], .field input[type=number], .field input[type=date], .field input[type=tel],
+  .field input[type=password], .field select, .field textarea{
+    font-family:inherit; font-size:14.5px; padding:8px 10px; border:1px solid var(--line);
+    border-radius:4px; background:var(--paper); color:var(--ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--navy); outline-offset:1px;}
+  .field textarea{resize:vertical; min-height:44px;}
+  .field .computed{ font-size:20px; font-weight:700; color:var(--navy-deep); padding:7px 2px; }
+  .field .computed small{display:block; font-size:11px; font-weight:500; color:var(--ink-soft);}
+  .field .static-value{font-size:15px; font-weight:700; color:var(--navy-deep); padding:8px 0;}
+  .absence-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-bottom:14px;}
+  @media (max-width:640px){ .absence-grid{grid-template-columns:1fr;} }
+  .absence-box{border:1px solid var(--line-soft); border-radius:4px; padding:12px; background:var(--paper);}
+  .absence-box .absence-title{font-size:12.5px; font-weight:700; color:var(--rust); margin-bottom:8px;}
+  .btn{
+    font-family:inherit; font-weight:600; font-size:14px; cursor:pointer; border-radius:4px;
+    padding:10px 18px; border:1px solid var(--navy); background:var(--navy); color:#fff;
+  }
+  .btn:hover{background:var(--navy-deep);}
+  .btn.secondary{background:transparent; color:var(--navy); border:1px solid var(--navy);}
+  .btn.secondary:hover{background:var(--teal-soft);}
+  .btn.danger{background:transparent; color:var(--rust); border:1px solid var(--rust);}
+  .btn.danger:hover{background:var(--rust-soft);}
+  .btn:disabled{opacity:.5; cursor:not-allowed;}
+  table.data{width:100%; border-collapse:collapse; font-size:13.5px;}
+  table.data th, table.data td{border:1px solid var(--line); padding:7px 8px; text-align:left;}
+  table.data th{background:var(--teal-soft); color:var(--navy-deep); font-weight:600; font-size:12.5px;}
+  table.data tr:nth-child(even) td{background:#FCFBF8;}
+  table.data td.num{text-align:center;}
+  table.data tr.totals-row td{font-weight:700; background:var(--teal-soft) !important;}
+  .notice{
+    font-size:12.5px; color:var(--ink-soft); background:var(--line-soft); border-radius:4px;
+    padding:8px 12px; margin-bottom:18px; border:1px solid var(--line);
+  }
+  .empty{color:var(--ink-soft); font-style:italic; padding:20px 0; text-align:center;}
+  .status-msg{font-size:13px; margin-top:8px; min-height:18px;}
+  .status-msg.ok{color:var(--teal);}
+  .status-msg.err{color:var(--rust);}
+  .classes-list{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0;}
+  .chip{
+    display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line);
+    border-radius:20px; padding:6px 8px 6px 14px; font-size:13.5px; font-weight:600;
+  }
+  .chip button{
+    background:var(--rust-soft); color:var(--rust); border:none; border-radius:50%;
+    width:20px; height:20px; line-height:18px; cursor:pointer; font-size:13px;
+  }
+  .history-list{display:flex; flex-direction:column; gap:6px;}
+  .history-item{
+    display:flex; justify-content:space-between; align-items:center; padding:10px 14px;
+    border:1px solid var(--line); border-radius:4px; background:var(--paper); cursor:pointer;
+  }
+  .history-item:hover{border-color:var(--navy);}
+  .history-item .cnt{color:var(--ink-soft); font-size:12.5px;}
+  /* Report */
+  .report-block{border:1px solid var(--line-soft); border-radius:4px; padding:12px 14px; margin-bottom:10px; background:var(--paper);}
+  .report-block h4{font-size:13.5px; margin:0 0 8px;}
+  .absentee-line{font-size:13px; margin:4px 0; color:var(--ink);}
+  .absentee-line b{color:var(--rust); font-weight:600;}
+  .absentee-line i{color:var(--ink-soft);}
+  /* Meal slips */
+  .slip-toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;}
+  .slip-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:14px;}
+  @media (max-width:760px){ .slip-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:480px){ .slip-grid{grid-template-columns:1fr;} }
+  .slip{ border:1.5px solid var(--navy); border-radius:4px; padding:12px 14px; background:var(--surface); }
+  .slip h3{font-size:13px; font-family:'IBM Plex Serif',serif; border-bottom:1px solid var(--line); padding-bottom:6px; margin-bottom:8px;}
+  .slip .row{display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:6px;}
+  .slip .row label{color:var(--ink-soft);}
+  .slip .row input[type=number]{width:56px; padding:3px 5px; font-size:13px; border:1px solid var(--line); border-radius:3px;}
+  .slip .row input[type=text]{width:120px; padding:3px 5px; font-size:12.5px; border:1px solid var(--line); border-radius:3px;}
+  .slip .rule-note{font-size:11px; color:var(--ink-soft); margin-top:2px; font-style:italic;}
+  /* Login */
+  .login-wrap{max-width:420px; margin:60px auto;}
+  .login-wrap .card{padding:28px;}
+  .login-wrap h2{margin-bottom:6px;}
+  .login-wrap .switch-link{font-size:13px; text-align:center; margin-top:14px;}
+  .login-wrap .switch-link a{color:var(--navy); cursor:pointer; text-decoration:underline;}
+  /* Users table (settings) */
+  .user-row{display:grid; grid-template-columns:1fr 1fr 130px 110px 34px; gap:8px; align-items:center; margin-bottom:8px;}
+  .user-row.admin-row{grid-template-columns:1fr 1fr 34px;}
+  @media (max-width:760px){ .user-row, .user-row.admin-row{grid-template-columns:1fr; } }
+  .user-row input, .user-row select{font-family:inherit; font-size:13.5px; padding:7px 8px; border:1px solid var(--line); border-radius:4px; background:var(--paper);}
+  @media print{
+    body{background:#fff;}
+    header.top, nav.tabs, .user-bar, .no-print, .card > .hint, .slip-toolbar .btn, .field, .not-print-area{display:none !important;}
+    .app-shell{max-width:none; padding:0;}
+    #view > *:not(#print-area){display:none !important;}
+    #print-area{display:block !important;}
+    .slip{break-inside:avoid; border:1.3px solid #000;}
+    .slip .row input{border:none; font-weight:600;}
+    .print-title{display:block !important; text-align:center; font-family:'IBM Plex Serif',serif; font-size:16px; margin-bottom:10px;}
+  }
+  .print-title{display:none;}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="top">
+    <div>
+      <h1>Журнал відвідування</h1>
+      <p>Заявки на харчування формуються автоматично з даних відвідування</p>
+    </div>
+  </header>
+  <div id="user-bar-holder"></div>
+  <nav class="tabs no-print" id="tabs"></nav>
+  <main id="view"><div class="empty">Завантаження…</div></main>
+</div>
+<script>
+(function(){
+  "use strict";
+
+  if (!window.storage) {
+    window.storage = {
+      get: function(key) {
+        var val = localStorage.getItem(key);
+        return Promise.resolve(val !== null ? { value: val } : null);
+      },
+      set: function(key, val) {
+        localStorage.setItem(key, val);
+        return Promise.resolve(true);
+      },
+      delete: function(key) {
+        localStorage.removeItem(key);
+        return Promise.resolve(true);
+      },
+      list: function(prefix) {
+        var keys = [];
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (!prefix || (k && k.indexOf(prefix) === 0)) {
+            keys.push(k);
+          }
+        }
+        return Promise.resolve({ keys: keys });
+      }
+    };
+  }
+
+  // Grades that receive only breakfast, and grades that receive only lunch.
+  const BREAKFAST_ONLY_GRADES = [1,2,3,4,5,6,9];
+  const LUNCH_ONLY_GRADES = [7,8];
+
+  const ABSENCE_KEYS = [
+    {key:"illness", label:"По хворобі"},
+    {key:"grvi", label:"По ГРВІ"},
+    {key:"family", label:"По сімейних причинах"},
+    {key:"noReason", label:"Без поважної причини"}
+  ];
+
+  const state = {
+    tab: "attendance",
+    date: todayStr(),
+    classes: [],
+    users: [],
+    settings: {botToken:"", chatId:""},
+    session: null,
+    dateCache: {},
+    dateCacheDate: null,
+    historyDates: null,
+    selectedClass: null,
+    reportMonth: monthPrefixDefault(),
+    loginMode: "login" // "login" | "bootstrap"
+  };
+
+  function monthPrefixDefault(){
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+  }
+
+  function todayStr(){
+    const d = new Date();
+    const p = n => String(n).padStart(2,"0");
+    return d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate());
+  }
+  function fmtDate(iso){ const [y,m,d] = iso.split("-"); return `${d}.${m}.${y}`; }
+  function attKey(date, cls){ return "att_" + date + "_" + encodeURIComponent(cls); }
+  function decodeClassFromKey(key, date){ return decodeURIComponent(key.slice(("att_"+date+"_").length)); }
+  function escapeHtml(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function normPhone(p){ return String(p||"").replace(/\D/g,""); }
+  function normPass(p){ return String(p||"").trim().replace(/\s+/g," ").toLowerCase(); }
+  function num(v){ const n = parseInt(v,10); return isNaN(n) ? 0 : n; }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function cssSafe(s){ return s.replace(/[^a-zA-Z0-9\u0430-\u044f\u0410-\u042f\u0456\u0406\u0457\u0407\u0454\u0404]/g, "_"); }
+  function parseGrade(cls){ const m = String(cls||"").match(/(\d{1,2})/); return m ? parseInt(m[1],10) : null; }
+  function mealDefaults(cls, present){
+    const grade = parseGrade(cls);
+    if(grade !== null && BREAKFAST_ONLY_GRADES.includes(grade)) return {breakfast:present, lunch:0};
+    if(grade !== null && LUNCH_ONLY_GRADES.includes(grade)) return {breakfast:0, lunch:present};
+    return {breakfast:present, lunch:present};
+  }
+  function mealRuleNote(cls){
+    const grade = parseGrade(cls);
+    if(grade !== null && BREAKFAST_ONLY_GRADES.includes(grade)) return "За правилами цей клас отримує лише сніданок";
+    if(grade !== null && LUNCH_ONLY_GRADES.includes(grade)) return "За правилами цей клас отримує лише обід";
+    return "";
+  }
+
+  // ---------- roles / permissions ----------
+  function role(){ return state.session ? state.session.role : null; }
+  function isDev(){ return role() === "developer"; }
+  function isPriv(){ return role() === "developer" || role() === "admin"; }
+  function isTeacher(){ return role() === "teacher"; }
+  function roleLabel(r){
+    if(r === "developer") return "розробник";
+    if(r === "admin") return "адміністратор";
+    return "класний керівник";
+  }
+  function roleTagClass(r){
+    if(r === "developer") return "";
+    if(r === "admin") return "admin";
+    return "teacher";
+  }
+
+  // ---------- storage: shared config ----------
+  async function loadClasses(){
+    try{ const r = await window.storage.get("classes", true); state.classes = r ? JSON.parse(r.value) : []; }
+    catch(e){ state.classes = []; }
+  }
+  async function saveClasses(list){
+    state.classes = list;
+    try{ await window.storage.set("classes", JSON.stringify(list), true); return true; }catch(e){ return false; }
+  }
+  async function loadUsers(){
+    try{ const r = await window.storage.get("users", true); state.users = r ? JSON.parse(r.value) : []; }
+    catch(e){ state.users = []; }
+  }
+  async function saveUsers(list){
+    state.users = list;
+    try{ await window.storage.set("users", JSON.stringify(list), true); return true; }catch(e){ return false; }
+  }
+  async function loadSettings(){
+    try{ const r = await window.storage.get("settings", true); state.settings = r ? JSON.parse(r.value) : {botToken:"",chatId:""}; }
+    catch(e){ state.settings = {botToken:"", chatId:""}; }
+  }
+  async function saveSettings(s){
+    state.settings = s;
+    try{ await window.storage.set("settings", JSON.stringify(s), true); return true; }catch(e){ return false; }
+  }
+  async function loadSession(){
+    try{ const r = await window.storage.get("session", false); state.session = r ? JSON.parse(r.value) : null; }
+    catch(e){ state.session = null; }
+  }
+  async function setSession(s){
+    state.session = s;
+    try{ await window.storage.set("session", JSON.stringify(s), false); }catch(e){}
+  }
+  async function clearSession(){
+    state.session = null;
+    try{ await window.storage.delete("session", false); }catch(e){}
+  }
+  async function getAttendance(date, cls){
+    try{ const r = await window.storage.get(attKey(date, cls), true); return r ? JSON.parse(r.value) : null; }
+    catch(e){ return null; }
+  }
+  async function setAttendance(date, cls, record){
+    try{ await window.storage.set(attKey(date, cls), JSON.stringify(record), true); return true; }
+    catch(e){ return false; }
+  }
+  async function deleteAttendance(date, cls){
+    try{ await window.storage.delete(attKey(date, cls), true); return true; }catch(e){ return false; }
+  }
+  async function loadDateRecords(date){
+    if(state.dateCacheDate === date && state.dateCache) return state.dateCache;
+    const out = {};
+    try{
+      const listing = await window.storage.list("att_" + date + "_", true);
+      const keys = (listing && listing.keys) || [];
+      for(const k of keys){
+        const cls = decodeClassFromKey(k, date);
+        try{ const r = await window.storage.get(k, true); if(r) out[cls] = JSON.parse(r.value); }catch(e){}
+      }
+    }catch(e){}
+    state.dateCache = out; state.dateCacheDate = date;
+    return out;
+  }
+  function invalidateDateCache(date){ if(state.dateCacheDate === date){ state.dateCacheDate = null; state.dateCache = {}; } }
+  async function loadAllDates(){
+    if(state.historyDates) return state.historyDates;
+    const dateCounts = {};
+    try{
+      const listing = await window.storage.list("att_", true);
+      const keys = (listing && listing.keys) || [];
+      for(const k of keys){ const date = k.slice(4, 14); dateCounts[date] = (dateCounts[date] || 0) + 1; }
+    }catch(e){}
+    const dates = Object.keys(dateCounts).sort().reverse().map(d => ({date:d, count:dateCounts[d]}));
+    state.historyDates = dates;
+    return dates;
+  }
+  async function loadDatesForClass(cls){
+    const dateSet = {};
+    try{
+      const listing = await window.storage.list("att_", true);
+      const keys = (listing && listing.keys) || [];
+      for(const k of keys){
+        const date = k.slice(4, 14);
+        const c = decodeClassFromKey(k, date);
+        if(c === cls) dateSet[date] = true;
+      }
+    }catch(e){}
+    return Object.keys(dateSet).sort().reverse().map(d => ({date:d, count:1}));
+  }
+  function computePresent(rec){
+    const registered = num(rec.registered), abroad = num(rec.abroad), individual = num(rec.individual);
+    const absentTotal = ABSENCE_KEYS.reduce((s,a) => s + num(rec[a.key+"Count"]), 0);
+    const present = registered - abroad - individual - absentTotal;
+    return present < 0 ? 0 : present;
+  }
+
+  // ---------- Telegram ----------
+  async function sendTelegram(text){
+    if(!state.settings.botToken || !state.settings.chatId){
+      return {ok:false, error:"Telegram не налаштовано (вкладка «Налаштування»)"};
+    }
+    try{
+      const url = `https://api.telegram.org/bot${state.settings.botToken}/sendMessage`;
+      const resp = await fetch(url, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({chat_id: state.settings.chatId, text, parse_mode:"HTML"})
+      });
+      const data = await resp.json().catch(()=>({ok:false, description:"невірна відповідь сервера"}));
+      if(!data.ok) return {ok:false, error: data.description || "помилка Telegram API"};
+      return {ok:true};
+    }catch(e){
+      return {ok:false, error: "мережева помилка: " + e.message};
+    }
+  }
+  function attendanceMessage(date, cls, rec){
+    const present = computePresent(rec);
+    const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[a.key+"Count"]),0);
+    let lines = [
+      `<b>Відвідування оновлено</b>`,
+      `Дата: ${fmtDate(date)}`,
+      `Клас: <b>${escapeHtml(cls)}</b>`,
+      `За реєстром: ${num(rec.registered)}, присутні: <b>${present}</b>, відсутні: ${absentTotal}`
+    ];
+    ABSENCE_KEYS.forEach(a => {
+      const c = num(rec[a.key+"Count"]);
+      if(c > 0) lines.push(`— ${a.label}: ${c}${rec[a.key+"Names"] ? " (" + escapeHtml(rec[a.key+"Names"]) + ")" : ""}`);
+    });
+    if(state.session && state.session.name) lines.push(`Внесено: ${escapeHtml(state.session.name)}`);
+    return lines.join("\n");
+  }
+  function dailySummaryMessage(date, records){
+    const clsList = Object.keys(records).sort();
+    let lines = [`<b>Зведення харчування — ${fmtDate(date)}</b>`, ""];
+    let totalBr = 0, totalLu = 0;
+    clsList.forEach(c => {
+      const r = records[c];
+      const present = computePresent(r);
+      const defaults = mealDefaults(c, present);
+      const br = (r.breakfast===null||r.breakfast===undefined||r.breakfast==="") ? defaults.breakfast : num(r.breakfast);
+      const lu = (r.lunch===null||r.lunch===undefined||r.lunch==="") ? defaults.lunch : num(r.lunch);
+      totalBr += br; totalLu += lu;
+      lines.push(`${escapeHtml(c)}: присутні ${present}, сніданок ${br}, обід ${lu}`);
+    });
+    lines.push("", `Разом: сніданків ${totalBr}, обідів ${totalLu}`);
+    return lines.join("\n");
+  }
+
+  // ---------- rendering shell ----------
+  const view = document.getElementById("view");
+  const tabsNav = document.getElementById("tabs");
+  const userBarHolder = document.getElementById("user-bar-holder");
+  function availableTabs(){
+    const tabs = [
+      {id:"attendance", label:"Відвідування"},
+      {id:"report", label:"Звіт відвідування"},
+      {id:"monthly", label:"Звіт за місяць"},
+      {id:"meals", label:"Заявки на харчування"},
+      {id:"history", label:"Історія"}
+    ];
+    if(isPriv()) tabs.push({id:"settings", label:"Налаштування"});
+    return tabs;
+  }
+  function renderUserBar(){
+    if(!state.session){ userBarHolder.innerHTML = ""; return; }
+    const classPart = state.session.role === "teacher" ? (state.session.className ? `, ${escapeHtml(state.session.className)}` : ", клас не призначено") : "";
+    userBarHolder.innerHTML = `
+      <div class="user-bar no-print">
+        <div class="who">Ви увійшли як <strong>${escapeHtml(state.session.name)}</strong>${classPart}<span class="role-tag ${roleTagClass(state.session.role)}">${roleLabel(state.session.role)}</span></div>
+        <button id="logout-btn">Вийти</button>
+      </div>`;
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await clearSession();
+      renderTabsNav();
+      render();
+    });
+  }
+  function renderTabsNav(){
+    if(!state.session){ tabsNav.innerHTML = ""; return; }
+    const tabs = availableTabs();
+    if(!tabs.find(t => t.id === state.tab)) state.tab = "attendance";
+    tabsNav.innerHTML = tabs.map(t => `<button data-tab="${t.id}" class="${t.id===state.tab?'active':''}">${t.label}</button>`).join("");
+    tabsNav.querySelectorAll("button[data-tab]").forEach(b => {
+      b.addEventListener("click", () => { state.tab = b.dataset.tab; renderTabsNav(); render(); });
+    });
+  }
+  async function boot(){
+    await Promise.all([loadClasses(), loadUsers(), loadSettings(), loadSession()]);
+    renderUserBar();
+    renderTabsNav();
+    render();
+  }
+  async function render(){
+    renderUserBar();
+    if(!state.session){ return renderLogin(); }
+    if(state.tab === "attendance") return renderAttendance();
+    if(state.tab === "report") return renderReport();
+    if(state.tab === "monthly") return renderMonthly();
+    if(state.tab === "meals") return renderMeals();
+    if(state.tab === "history") return renderHistory();
+    if(state.tab === "settings" && isPriv()) return renderSettings();
+    state.tab = "attendance";
+    return renderAttendance();
+  }
+
+  // ----- Login / bootstrap -----
+  function renderLogin(){
+    tabsNav.innerHTML = "";
+    if(!state.users.length){
+      view.innerHTML = `
+        <div class="login-wrap">
+          <div class="card">
+            <h2>Перший запуск</h2>
+            <p class="hint">Ще немає жодного облікового запису. Створіть обліковий запис розробника сайту — він матиме доступ до всіх функцій, зможе додавати адміністраторів і вчителів. Паролем для входу буде ваше прізвище та ім'я, яке ви вкажете нижче.</p>
+            <div class="field"><label>Прізвище та ім'я</label><input type="text" id="boot-name" placeholder="напр. Іваненко Олена"></div>
+            <div class="field" style="margin-top:12px;"><label>Номер телефону (буде логіном)</label><input type="tel" id="boot-phone" placeholder="+380 XX XXX XX XX"></div>
+            <button class="btn" id="boot-btn" style="margin-top:16px;">Створити обліковий запис розробника</button>
+            <div class="status-msg" id="boot-status"></div>
+          </div>
+        </div>`;
+      document.getElementById("boot-btn").addEventListener("click", async () => {
+        const name = document.getElementById("boot-name").value.trim();
+        const phone = document.getElementById("boot-phone").value.trim();
+        if(!name || !phone){ setStatus("boot-status", "Заповніть прізвище та ім'я, і номер телефону", true); return; }
+        const u = {id:uid(), name, phone, role:"developer", className:""};
+        await saveUsers([u]);
+        await setSession({userId:u.id, name:u.name, role:"developer", className:""});
+        renderTabsNav();
+        render();
+      });
+      return;
+    }
+    view.innerHTML = `
+      <div class="login-wrap">
+        <div class="card">
+          <h2>Вхід</h2>
+          <p class="hint">Логін — номер телефону, пароль — ваше прізвище та ім'я, як його вказав розробник або адміністратор при створенні вашого облікового запису.</p>
+          <div class="field">
+            <label>Номер телефону</label>
+            <input type="tel" id="login-phone" placeholder="+380 XX XXX XX XX">
+          </div>
+          <div class="field" style="margin-top:12px;">
+            <label>Пароль (прізвище та ім'я)</label>
+            <input type="password" id="login-pass" placeholder="напр. Іваненко Олена">
+          </div>
+          <button class="btn" id="login-btn" style="margin-top:16px;">Увійти</button>
+          <div class="status-msg" id="login-status"></div>
+        </div>
+      </div>`;
+    document.getElementById("login-btn").addEventListener("click", async () => {
+      const phone = document.getElementById("login-phone").value;
+      const pass = document.getElementById("login-pass").value;
+      if(!normPhone(phone)){ setStatus("login-status", "Введіть номер телефону", true); return; }
+      const candidates = state.users.filter(u => normPhone(u.phone) === normPhone(phone));
+      if(!candidates.length){ setStatus("login-status", "Користувача з таким номером телефону не знайдено", true); return; }
+      const u = candidates.find(c => normPass(pass) === normPass(c.name));
+      if(!u){ setStatus("login-status", "Невірний пароль", true); return; }
+      await setSession({userId:u.id, name:u.name, role:u.role, className:u.className||""});
+      renderTabsNav();
+      render();
+    });
+  }
+  function setStatus(id, msg, isErr){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.textContent = msg;
+    el.className = "status-msg " + (isErr ? "err" : "ok");
+  }
+
+  // ----- Settings tab -----
+  function renderSettings(){
+    const admins = state.users.filter(u => u.role === "admin");
+    const teachers = state.users.filter(u => u.role === "teacher");
+    view.innerHTML = `
+      <div class="card">
+        <h2>Класи</h2>
+        <p class="hint">Список класів школи — використовується у формі відвідування.</p>
+        <div class="field-row">
+          <div class="field" style="flex:0 0 160px;"><label for="new-class-input">Новий клас</label><input type="text" id="new-class-input" placeholder="напр. 5-А"></div>
+          <div class="field" style="flex:0; align-self:flex-end;"><button class="btn" id="add-class-btn">Додати клас</button></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="bulk-class-input">Або кілька одразу (кожен з нового рядка)</label><textarea id="bulk-class-input" rows="3" placeholder="1-А&#10;1-Б&#10;2-А"></textarea></div>
+          <div class="field" style="flex:0; align-self:flex-end;"><button class="btn secondary" id="bulk-add-btn">Додати список</button></div>
+        </div>
+        <div class="classes-list" id="classes-list"></div>
+        <div class="status-msg" id="classes-status"></div>
+      </div>
+      ${isDev() ? `
+      <div class="card">
+        <h2>Адміністратори</h2>
+        <p class="hint">Адміністраторів може додавати лише розробник. Адміністратор має доступ до всіх функцій і звітів та може додавати вчителів, окрім керування адміністраторами.</p>
+        <div id="admins-list"></div>
+        <div class="user-row admin-row" style="margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+          <input type="text" id="new-a-name" placeholder="Прізвище та ім'я">
+          <input type="tel" id="new-a-phone" placeholder="Номер телефону">
+          <button class="btn" id="add-admin-btn" style="padding:8px 10px;">+</button>
+        </div>
+        <div class="status-msg" id="admins-status"></div>
+      </div>` : ""}
+      <div class="card">
+        <h2>Вчителі та закріплення за класами</h2>
+        <p class="hint">Вчитель входить за номером телефону, пароль — його прізвище та ім'я. Тут ви закріплюєте вчителя за класом; вчителю відображаються дані лише його класу.</p>
+        <div id="teachers-list"></div>
+        <div class="user-row" style="margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
+          <input type="text" id="new-t-name" placeholder="Прізвище та ім'я">
+          <input type="tel" id="new-t-phone" placeholder="Номер телефону">
+          <select id="new-t-class"><option value="">Клас —</option>${state.classes.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}</select>
+          <button class="btn" id="add-teacher-btn" style="padding:8px 10px;">+</button>
+        </div>
+        <div class="status-msg" id="teachers-status"></div>
+      </div>
+      <div class="card">
+        <h2>Сповіщення в Telegram</h2>
+        <p class="hint">Токен бота видно у коді сторінки — використовуйте окремого бота, створеного лише для цього внутрішнього інструмента. Повідомлення надсилаються в один чат/групу (chat id).</p>
+        <div class="field-row">
+          <div class="field"><label>Bot Token</label><input type="text" id="tg-token" value="${escapeHtml(state.settings.botToken||"")}" placeholder="123456:AA...-..."></div>
+          <div class="field"><label>Chat ID</label><input type="text" id="tg-chat" value="${escapeHtml(state.settings.chatId||"")}" placeholder="-100123456789"></div>
+        </div>
+        <button class="btn" id="save-tg-btn">Зберегти налаштування Telegram</button>
+        <button class="btn secondary" id="test-tg-btn" style="margin-left:8px;">Надіслати тестове повідомлення</button>
+        <div class="status-msg" id="tg-status"></div>
+      </div>`;
+    renderClassChips();
+    if(isDev()) renderAdminsList(admins);
+    renderTeachersList(teachers);
+    document.getElementById("add-class-btn").addEventListener("click", async () => {
+      const input = document.getElementById("new-class-input");
+      const val = input.value.trim();
+      if(!val) return;
+      if(state.classes.includes(val)){ setStatus("classes-status", "Такий клас уже є", true); return; }
+      const ok = await saveClasses([...state.classes, val]);
+      setStatus("classes-status", ok ? `Клас «${val}» додано` : "Не вдалося зберегти", !ok);
+      input.value = "";
+      renderSettings();
+    });
+    document.getElementById("bulk-add-btn").addEventListener("click", async () => {
+      const ta = document.getElementById("bulk-class-input");
+      const names = ta.value.split("\n").map(s => s.trim()).filter(Boolean);
+      if(!names.length) return;
+      const set = new Set(state.classes);
+      names.forEach(n => set.add(n));
+      const ok = await saveClasses(Array.from(set));
+      setStatus("classes-status", ok ? `Додано ${names.length} клас(ів)` : "Не вдалося зберегти", !ok);
+      ta.value = "";
+      renderSettings();
+    });
+    const addAdminBtn = document.getElementById("add-admin-btn");
+    if(addAdminBtn){
+      addAdminBtn.addEventListener("click", async () => {
+        const name = document.getElementById("new-a-name").value.trim();
+        const phone = document.getElementById("new-a-phone").value.trim();
+        if(!name || !phone){ setStatus("admins-status", "Вкажіть ім'я і телефон", true); return; }
+        if(state.users.some(u => normPhone(u.phone) === normPhone(phone))){ setStatus("admins-status", "Цей номер телефону вже використовується", true); return; }
+        const list = [...state.users, {id:uid(), name, phone, role:"admin", className:""}];
+        const ok = await saveUsers(list);
+        setStatus("admins-status", ok ? `Додано адміністратора «${name}»` : "Не вдалося зберегти", !ok);
+        renderSettings();
+      });
+    }
+    document.getElementById("add-teacher-btn").addEventListener("click", async () => {
+      const name = document.getElementById("new-t-name").value.trim();
+      const phone = document.getElementById("new-t-phone").value.trim();
+      const className = document.getElementById("new-t-class").value;
+      if(!name || !phone){ setStatus("teachers-status", "Вкажіть ім'я і телефон", true); return; }
+      if(state.users.some(u => normPhone(u.phone) === normPhone(phone))){ setStatus("teachers-status", "Цей номер телефону вже використовується", true); return; }
+      const list = [...state.users, {id:uid(), name, phone, role:"teacher", className}];
+      const ok = await saveUsers(list);
+      setStatus("teachers-status", ok ? `Додано «${name}»` : "Не вдалося зберегти", !ok);
+      renderSettings();
+    });
+    document.getElementById("save-tg-btn").addEventListener("click", async () => {
+      const botToken = document.getElementById("tg-token").value.trim();
+      const chatId = document.getElementById("tg-chat").value.trim();
+      const ok = await saveSettings({botToken, chatId});
+      setStatus("tg-status", ok ? "Налаштування Telegram збережено" : "Не вдалося зберегти", !ok);
+    });
+    document.getElementById("test-tg-btn").addEventListener("click", async () => {
+      const botToken = document.getElementById("tg-token").value.trim();
+      const chatId = document.getElementById("tg-chat").value.trim();
+      await saveSettings({botToken, chatId});
+      setStatus("tg-status", "Надсилання…", false);
+      const res = await sendTelegram("Тестове повідомлення від сайту обліку відвідування.");
+      setStatus("tg-status", res.ok ? "Тестове повідомлення надіслано" : "Помилка: " + res.error, !res.ok);
+    });
+  }
+  function renderClassChips(){
+    const box = document.getElementById("classes-list");
+    if(!box) return;
+    if(!state.classes.length){ box.innerHTML = `<div class="empty">Ще немає жодного класу.</div>`; return; }
+    box.innerHTML = state.classes.map(c => `<div class="chip">${escapeHtml(c)}<button data-cls="${escapeHtml(c)}" title="Видалити клас">×</button></div>`).join("");
+    box.querySelectorAll("button[data-cls]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const cls = btn.dataset.cls;
+        if(!confirm(`Видалити клас «${cls}»? Раніше збережені записи не будуть видалені.`)) return;
+        await saveClasses(state.classes.filter(c => c !== cls));
+        renderSettings();
+      });
+    });
+  }
+  function renderAdminsList(admins){
+    const box = document.getElementById("admins-list");
+    if(!box) return;
+    if(!admins.length){ box.innerHTML = `<div class="empty">Ще немає жодного адміністратора.</div>`; return; }
+    box.innerHTML = admins.map(u => `
+      <div class="user-row admin-row">
+        <input type="text" value="${escapeHtml(u.name)}" data-field="name" data-id="${u.id}">
+        <input type="tel" value="${escapeHtml(u.phone)}" data-field="phone" data-id="${u.id}">
+        <button class="btn danger" data-del="${u.id}" style="padding:6px 10px;">×</button>
+      </div>`).join("");
+    box.querySelectorAll("input[data-field]").forEach(el => {
+      el.addEventListener("change", async () => {
+        const id = el.dataset.id, field = el.dataset.field;
+        const u = state.users.find(x => x.id === id);
+        if(!u) return;
+        u[field] = el.value;
+        await saveUsers(state.users);
+        setStatus("admins-status", "Дані оновлено", false);
+      });
+    });
+    box.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.del;
+        const u = state.users.find(x => x.id === id);
+        if(!confirm(`Видалити адміністратора «${u?u.name:""}»?`)) return;
+        await saveUsers(state.users.filter(x => x.id !== id));
+        renderSettings();
+      });
+    });
+  }
+  function renderTeachersList(teachers){
+    const box = document.getElementById("teachers-list");
+    if(!box) return;
+    if(!teachers.length){ box.innerHTML = `<div class="empty">Ще немає жодного вчителя.</div>`; return; }
+    box.innerHTML = teachers.map(t => `
+      <div class="user-row">
+        <input type="text" value="${escapeHtml(t.name)}" data-field="name" data-id="${t.id}">
+        <input type="tel" value="${escapeHtml(t.phone)}" data-field="phone" data-id="${t.id}">
+        <select data-field="className" data-id="${t.id}">
+          <option value="" ${!t.className?"selected":""}>Клас —</option>
+          ${state.classes.map(c=>`<option value="${escapeHtml(c)}" ${t.className===c?"selected":""}>${escapeHtml(c)}</option>`).join("")}
+        </select>
+        <span class="role-tag teacher">класний керівник</span>
+        <button class="btn danger" data-del="${t.id}" style="padding:6px 10px;">×</button>
+      </div>`).join("");
+    box.querySelectorAll("input[data-field], select[data-field]").forEach(el => {
+      el.addEventListener("change", async () => {
+        const id = el.dataset.id, field = el.dataset.field;
+        const t = state.users.find(x => x.id === id);
+        if(!t) return;
+        t[field] = el.value;
+        await saveUsers(state.users);
+        setStatus("teachers-status", "Дані оновлено", false);
+      });
+    });
+    box.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.del;
+        const t = state.users.find(x => x.id === id);
+        if(!confirm(`Видалити вчителя «${t?t.name:""}»?`)) return;
+        await saveUsers(state.users.filter(x => x.id !== id));
+        renderSettings();
+      });
+    });
+  }
+
+  // ----- Attendance tab -----
+  async function renderAttendance(){
+    const priv = isPriv();
+    const lockedClass = !priv ? state.session.className : "";
+    if(priv && !state.classes.length){
+      view.innerHTML = `<div class="card"><div class="empty">Спочатку додайте класи на вкладці «Налаштування».</div></div>`;
+      return;
+    }
+    if(!priv && !lockedClass){
+      view.innerHTML = `<div class="card"><div class="empty">Вашому акаунту ще не призначено клас. Зверніться до адміністратора школи (вкладка «Налаштування» → «Вчителі»).</div></div>`;
+      return;
+    }
+    if(!state.selectedClass || (priv && !state.classes.includes(state.selectedClass))) state.selectedClass = priv ? state.classes[0] : lockedClass;
+    if(!priv) state.selectedClass = lockedClass;
+    view.innerHTML = `
+      <div class="card">
+        <h2>Внесення даних відвідування</h2>
+        <p class="hint">${priv ? "Оберіть дату та клас" : "Оберіть дату — клас визначено вашим акаунтом"} — поле «Присутні (фактично)» рахується автоматично. Після збереження надсилається сповіщення в Telegram.</p>
+        <div class="field-row">
+          <div class="field narrow"><label for="att-date">Дата</label><input type="date" id="att-date" value="${state.date}"></div>
+          ${priv ? `
+          <div class="field narrow" style="flex:0 0 160px;">
+            <label for="att-class">Клас</label>
+            <select id="att-class">${state.classes.map(c => `<option value="${escapeHtml(c)}" ${c===state.selectedClass?"selected":""}>${escapeHtml(c)}</option>`).join("")}</select>
+          </div>` : `
+          <div class="field narrow" style="flex:0 0 160px;"><label>Клас</label><div class="static-value">${escapeHtml(lockedClass)}</div></div>`}
+        </div>
+        <div id="att-form-holder"></div>
+      </div>
+      ${priv ? `
+      <div class="card">
+        <h2>Внесені дані за <span id="summary-date-label"></span></h2>
+        <p class="hint">Класи, дані по яких уже внесені на обрану дату.</p>
+        <div id="att-summary-holder"><div class="empty">Завантаження…</div></div>
+      </div>` : ""}`;
+    document.getElementById("att-date").addEventListener("change", e => { state.date = e.target.value || todayStr(); renderAttendance(); });
+    if(priv){
+      document.getElementById("att-class").addEventListener("change", e => { state.selectedClass = e.target.value; renderAttendanceForm(); });
+    }
+    await renderAttendanceForm();
+    if(priv) await renderAttendanceSummary();
+  }
+  async function renderAttendanceForm(){
+    const holder = document.getElementById("att-form-holder");
+    holder.innerHTML = `<div class="empty">Завантаження…</div>`;
+    const records = await loadDateRecords(state.date);
+    const rec = records[state.selectedClass] || defaultRecord();
+    holder.innerHTML = `
+      <div class="field-row">
+        <div class="field narrow"><label>За реєстром</label><input type="number" min="0" id="f-registered" value="${rec.registered ?? ""}"></div>
+        <div class="field narrow"><label>За кордоном</label><input type="number" min="0" id="f-abroad" value="${rec.abroad ?? ""}"></div>
+        <div class="field narrow"><label>Індивідуальне навчання</label><input type="number" min="0" id="f-individual" value="${rec.individual ?? ""}"></div>
+        <div class="field narrow"><label>Присутні (фактично)</label><div class="computed" id="f-present-computed">${computePresent(rec)}<small>рахується автоматично</small></div></div>
+      </div>
+      <div class="absence-grid">
+        ${ABSENCE_KEYS.map(a => `
+          <div class="absence-box">
+            <div class="absence-title">${a.label}</div>
+            <div class="field-row" style="margin-bottom:8px;">
+              <div class="field narrow" style="flex:0 0 90px;"><label>Кількість</label><input type="number" min="0" class="absence-count" data-key="${a.key}" id="f-${a.key}-count" value="${rec[a.key+'Count'] ?? ""}"></div>
+              <div class="field"><label>Прізвища учнів</label><input type="text" id="f-${a.key}-names" value="${escapeHtml(rec[a.key+'Names'] || "")}" placeholder="Прізвище Ім'я, ..."></div>
+            </div>
+          </div>`).join("")}
+      </div>
+      <button class="btn" id="save-att-btn">Зберегти дані відвідування</button>
+      ${records[state.selectedClass] ? `<button class="btn danger" id="del-att-btn" style="margin-left:8px;">Видалити запис за цей день</button>` : ""}
+      <div class="status-msg" id="att-status"></div>`;
+    holder.querySelectorAll(".absence-count, #f-registered, #f-abroad, #f-individual").forEach(inp => inp.addEventListener("input", recomputePresentLive));
+    document.getElementById("save-att-btn").addEventListener("click", async () => {
+      const newRec = readFormRecord(rec);
+      setStatus("att-status", "Збереження…", false);
+      const ok = await setAttendance(state.date, state.selectedClass, newRec);
+      invalidateDateCache(state.date);
+      state.historyDates = null;
+      if(!ok){ setStatus("att-status", "Не вдалося зберегти", true); return; }
+      setStatus("att-status", "Збережено. Надсилання в Telegram…", false);
+      const tg = await sendTelegram(attendanceMessage(state.date, state.selectedClass, newRec));
+      setStatus("att-status", tg.ok ? "Збережено, повідомлення надіслано в Telegram" : "Збережено (Telegram: " + tg.error + ")", false);
+      if(document.getElementById("att-summary-holder")) await renderAttendanceSummary();
+    });
+    const delBtn = document.getElementById("del-att-btn");
+    if(delBtn){
+      delBtn.addEventListener("click", async () => {
+        if(!confirm(`Видалити дані відвідування для класу «${state.selectedClass}» за ${fmtDate(state.date)}?`)) return;
+        await deleteAttendance(state.date, state.selectedClass);
+        invalidateDateCache(state.date);
+        state.historyDates = null;
+        await renderAttendanceForm();
+        if(document.getElementById("att-summary-holder")) await renderAttendanceSummary();
+      });
+    }
+  }
+  function defaultRecord(){
+    return {registered:"", abroad:"", individual:"", illnessCount:"", illnessNames:"",
+      grviCount:"", grviNames:"", familyCount:"", familyNames:"", noReasonCount:"", noReasonNames:"",
+      breakfast:null, lunch:null, signature:""};
+  }
+  function readFormRecord(prev){
+    const rec = {
+      registered: valNum("f-registered"), abroad: valNum("f-abroad"), individual: valNum("f-individual"),
+      breakfast: prev.breakfast, lunch: prev.lunch, signature: prev.signature || ""
+    };
+    ABSENCE_KEYS.forEach(a => {
+      rec[a.key+"Count"] = valNum("f-"+a.key+"-count");
+      rec[a.key+"Names"] = document.getElementById("f-"+a.key+"-names").value.trim();
+    });
+    rec.present = computePresent(rec);
+    return rec;
+  }
+  function valNum(id){ const el = document.getElementById(id); return el.value === "" ? "" : el.value; }
+  function recomputePresentLive(){
+    const rec = {registered: valNum("f-registered"), abroad: valNum("f-abroad"), individual: valNum("f-individual")};
+    ABSENCE_KEYS.forEach(a => rec[a.key+"Count"] = valNum("f-"+a.key+"-count"));
+    document.getElementById("f-present-computed").innerHTML = computePresent(rec) + "<small>рахується автоматично</small>";
+  }
+  async function renderAttendanceSummary(){
+    const label = document.getElementById("summary-date-label");
+    if(label) label.textContent = fmtDate(state.date);
+    const holder = document.getElementById("att-summary-holder");
+    if(!holder) return;
+    const records = await loadDateRecords(state.date);
+    const clsList = Object.keys(records);
+    if(!clsList.length){ holder.innerHTML = `<div class="empty">Ще немає внесених даних за цю дату.</div>`; return; }
+    clsList.sort();
+    holder.innerHTML = `
+      <table class="data">
+        <thead><tr><th>Клас</th><th>За реєстром</th><th>За кордоном</th><th>Індив. навч.</th><th>Присутні</th><th>Відсутні</th>
+          ${ABSENCE_KEYS.map(a=>`<th>${a.label}</th>`).join("")}</tr></thead>
+        <tbody>
+        ${clsList.map(c => {
+          const r = records[c];
+          const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(r[a.key+"Count"]),0);
+          return `<tr><td>${escapeHtml(c)}</td><td class="num">${num(r.registered)}</td><td class="num">${num(r.abroad)}</td><td class="num">${num(r.individual)}</td>
+            <td class="num"><strong>${computePresent(r)}</strong></td><td class="num">${absentTotal}</td>
+            ${ABSENCE_KEYS.map(a=>`<td class="num">${num(r[a.key+"Count"])||"—"}</td>`).join("")}</tr>`;
+        }).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  // ----- Report tab (attendance report, with absentee names) -----
+  function absenteeBlockHtml(cls, rec){
+    const present = computePresent(rec);
+    const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[a.key+"Count"]),0);
+    let inner = `<h4>${escapeHtml(cls)} — присутні ${present}, відсутні ${absentTotal}</h4>`;
+    let any = false;
+    ABSENCE_KEYS.forEach(a => {
+      const c = num(rec[a.key+"Count"]);
+      if(c > 0){
+        any = true;
+        const names = (rec[a.key+"Names"]||"").trim();
+        inner += `<div class="absentee-line"><b>${a.label} (${c}):</b> ${names ? escapeHtml(names) : "<i>прізвища не вказано</i>"}</div>`;
+      }
+    });
+    if(!any) inner += `<div class="absentee-line">Відсутніх немає.</div>`;
+    return `<div class="report-block">${inner}</div>`;
+  }
+  async function renderReport(){
+    const priv = isPriv();
+    if(!priv && !state.session.className){
+      view.innerHTML = `<div class="card"><div class="empty">Вашому акаунту ще не призначено клас.</div></div>`;
+      return;
+    }
+    view.innerHTML = `
+      <div class="card">
+        <h2>Звіт про відвідування</h2>
+        <p class="hint">${priv ? "Зведений звіт по всій школі за обрану дату, з прізвищами відсутніх учнів." : "Звіт по вашому класу за обрану дату, з прізвищами відсутніх учнів."}</p>
+        <div class="field-row"><div class="field narrow"><label for="rep-date">Дата</label><input type="date" id="rep-date" value="${state.date}"></div></div>
+        <div id="report-holder"><div class="empty">Завантаження…</div></div>
+      </div>`;
+    document.getElementById("rep-date").addEventListener("change", e => { state.date = e.target.value || todayStr(); renderReportBody(); });
+    await renderReportBody();
+  }
+  async function renderReportBody(){
+    const holder = document.getElementById("report-holder");
+    if(!holder) return;
+    holder.innerHTML = `<div class="empty">Завантаження…</div>`;
+    const records = await loadDateRecords(state.date);
+    const priv = isPriv();
+    if(!priv){
+      const cls = state.session.className;
+      const rec = records[cls];
+      if(!rec){ holder.innerHTML = `<div class="empty">Дані відвідування за ${fmtDate(state.date)} для класу «${escapeHtml(cls)}» ще не внесено.</div>`; return; }
+      holder.innerHTML = absenteeBlockHtml(cls, rec);
+      return;
+    }
+    const clsList = state.classes.slice().sort();
+    if(!clsList.length){ holder.innerHTML = `<div class="empty">Ще немає жодного класу.</div>`; return; }
+    let totals = {registered:0, present:0, absent:0};
+    ABSENCE_KEYS.forEach(a => totals[a.key] = 0);
+    let tableRows = "";
+    let blocks = "";
+    clsList.forEach(cls => {
+      const rec = records[cls];
+      if(!rec){
+        tableRows += `<tr><td>${escapeHtml(cls)}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>${ABSENCE_KEYS.map(()=>`<td class="num">—</td>`).join("")}</tr>`;
+        return;
+      }
+      const present = computePresent(rec);
+      const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[a.key+"Count"]),0);
+      totals.registered += num(rec.registered);
+      totals.present += present;
+      totals.absent += absentTotal;
+      ABSENCE_KEYS.forEach(a => totals[a.key] += num(rec[a.key+"Count"]));
+      tableRows += `<tr><td>${escapeHtml(cls)}</td><td class="num">${num(rec.registered)}</td><td class="num"><strong>${present}</strong></td><td class="num">${absentTotal}</td>
+        ${ABSENCE_KEYS.map(a=>`<td class="num">${num(rec[a.key+"Count"])||"—"}</td>`).join("")}</tr>`;
+      blocks += absenteeBlockHtml(cls, rec);
+    });
+    tableRows += `<tr class="totals-row"><td>Разом</td><td class="num">${totals.registered}</td><td class="num">${totals.present}</td><td class="num">${totals.absent}</td>
+      ${ABSENCE_KEYS.map(a=>`<td class="num">${totals[a.key]||"—"}</td>`).join("")}</tr>`;
+    holder.innerHTML = `
+      <table class="data" style="margin-bottom:18px;">
+        <thead><tr><th>Клас</th><th>За реєстром</th><th>Присутні</th><th>Відсутні</th>${ABSENCE_KEYS.map(a=>`<th>${a.label}</th>`).join("")}</tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <h3>Відсутні учні за класами</h3>
+      ${blocks || `<div class="empty">Немає внесених даних за цю дату.</div>`}`;
+  }
+
+  // ----- Monthly report tab (per-student days & reasons, aggregated over a month) -----
+  async function loadMonthRecords(monthPrefix, clsFilter){
+    const out = [];
+    try{
+      const listing = await window.storage.list("att_", true);
+      const keys = (listing && listing.keys) || [];
+      for(const k of keys){
+        const date = k.slice(4, 14);
+        if(date.slice(0,7) !== monthPrefix) continue;
+        const cls = decodeClassFromKey(k, date);
+        if(clsFilter && cls !== clsFilter) continue;
+        try{ const r = await window.storage.get(k, true); if(r) out.push({date, cls, rec: JSON.parse(r.value)}); }catch(e){}
+      }
+    }catch(e){}
+    return out;
+  }
+  const REASON_CODE = {illness:"хв", grvi:"хв", family:"Н", noReason:"Б"};
+  function normNameKey(name){ return String(name||"").trim().toLowerCase().replace(/\s+/g," "); }
+  function toDisplayName(name){
+    return String(name||"").trim().replace(/\s+/g," ").split(" ")
+      .map(w => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w).join(" ");
+  }
+  function fmtDateShort(iso){ const [,m,d] = iso.split("-"); return `${d}.${m}`; }
+  function buildMonthlyAbsenceMap(entries){
+    // returns { className: { normalizedNameKey: {display, entries:[{date, code}]} } }
+    const byClass = {};
+    entries.forEach(({date, cls, rec}) => {
+      ABSENCE_KEYS.forEach(a => {
+        const namesRaw = (rec[a.key+"Names"]||"").trim();
+        if(!namesRaw) return;
+        const names = namesRaw.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+        if(!names.length) return;
+        if(!byClass[cls]) byClass[cls] = {};
+        names.forEach(rawName => {
+          const key = normNameKey(rawName);
+          if(!key) return;
+          if(!byClass[cls][key]) byClass[cls][key] = {display: toDisplayName(rawName), entries: []};
+          byClass[cls][key].entries.push({date, code: REASON_CODE[a.key] || "?"});
+        });
+      });
+    });
+    return byClass;
+  }
+  function classMonthlyTableHtml(cls, studentsMap){
+    const dateSet = new Set();
+    Object.values(studentsMap).forEach(s => s.entries.forEach(e => dateSet.add(e.date)));
+    const dates = Array.from(dateSet).sort();
+    const rows = Object.values(studentsMap).sort((a,b) => a.display.localeCompare(b.display, "uk"));
+    const thead = `<tr><th>Прізвище</th>${dates.map(d=>`<th>${fmtDateShort(d)}</th>`).join("")}<th>Всього</th></tr>`;
+    const tbody = rows.map(s => {
+      const byDate = {};
+      s.entries.forEach(e => { byDate[e.date] = e.code; });
+      const total = Object.keys(byDate).length;
+      return `<tr><td>${escapeHtml(s.display)}</td>${dates.map(d=>`<td class="num">${byDate[d]||""}</td>`).join("")}<td class="num"><strong>${total}</strong></td></tr>`;
+    }).join("");
+    return `<h3>${escapeHtml(cls)}</h3><table class="data" style="margin-bottom:22px;"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+  }
+  function absenceLegendHtml(){
+    return `<div class="notice">
+      <div><b>Б</b> — без поважної причини</div>
+      <div><b>Н</b> — за сімейними обставинами</div>
+      <div><b>хв</b> — по хворобі або ГРВІ</div>
+    </div>`;
+  }
+  async function renderMonthly(){
+    const priv = isPriv();
+    if(!priv && !state.session.className){
+      view.innerHTML = `<div class="card"><div class="empty">Вашому акаунту ще не призначено клас.</div></div>`;
+      return;
+    }
+    view.innerHTML = `
+      <div class="card">
+        <h2>Звіт за місяць</h2>
+        <p class="hint">${priv ? "Таблиця відвідування по всіх класах за обраний місяць: рядок — учень, стовпець — дата, у клітинці — причина відсутності." : "Таблиця відвідування вашого класу за обраний місяць: рядок — учень, стовпець — дата, у клітинці — причина відсутності."} Прізвища, написані з великої чи малої літери, вважаються однією і тією ж дитиною.</p>
+        <div class="field-row"><div class="field narrow"><label for="rep-month">Місяць</label><input type="month" id="rep-month" value="${state.reportMonth}"></div></div>
+        <div id="monthly-holder"><div class="empty">Завантаження…</div></div>
+      </div>`;
+    document.getElementById("rep-month").addEventListener("change", e => { state.reportMonth = e.target.value || monthPrefixDefault(); renderMonthlyBody(); });
+    await renderMonthlyBody();
+  }
+  async function renderMonthlyBody(){
+    const holder = document.getElementById("monthly-holder");
+    if(!holder) return;
+    holder.innerHTML = `<div class="empty">Завантаження…</div>`;
+    const priv = isPriv();
+    const clsFilter = priv ? null : state.session.className;
+    const entries = await loadMonthRecords(state.reportMonth, clsFilter);
+    if(!entries.length){ holder.innerHTML = `<div class="empty">Немає внесених даних відвідування за цей місяць.</div>`; return; }
+    const byClass = buildMonthlyAbsenceMap(entries);
+    const clsList = Object.keys(byClass).sort();
+    if(!clsList.length){ holder.innerHTML = `<div class="empty">За цей місяць відсутніх (з указаними прізвищами) не зафіксовано.</div>`; return; }
+    holder.innerHTML = absenceLegendHtml() + clsList.map(cls => classMonthlyTableHtml(cls, byClass[cls])).join("");
+  }
+
+  // ----- Meals tab -----
+  async function renderMeals(){
+    const priv = isPriv();
+    if(!priv && !state.session.className){
+      view.innerHTML = `<div class="card"><div class="empty">Вашому акаунту ще не призначено клас.</div></div>`;
+      return;
+    }
+    view.innerHTML = `
+      <div class="card no-print">
+        <h2>Заявки на харчування</h2>
+        <p class="hint">Порції за замовчуванням дорівнюють кількості присутніх учнів — за потреби скоригуйте вручну перед друком. Учні 1–4, 5, 6 та 9 класів отримують лише сніданок, учні 7 та 8 класів — лише обід; це враховано автоматично.</p>
+        <div class="field-row"><div class="field narrow"><label for="meal-date">Дата</label><input type="date" id="meal-date" value="${state.date}"></div></div>
+      </div>
+      <div class="card">
+        <div class="slip-toolbar no-print">
+          <div id="meal-count-label" class="hint" style="margin:0;"></div>
+          <div>
+            <button class="btn secondary" id="send-summary-btn">Надіслати зведення в Telegram</button>
+            <button class="btn" id="print-btn" style="margin-left:8px;">Друкувати заявки</button>
+          </div>
+        </div>
+        <div class="status-msg no-print" id="meal-status"></div>
+        <div class="print-title" id="print-title"></div>
+        <div id="print-area"><div class="empty">Завантаження…</div></div>
+      </div>`;
+    document.getElementById("meal-date").addEventListener("change", e => { state.date = e.target.value || todayStr(); renderMeals(); });
+    document.getElementById("print-btn").addEventListener("click", () => window.print());
+    document.getElementById("send-summary-btn").addEventListener("click", async () => {
+      const records = await loadDateRecords(state.date);
+      const scoped = priv ? records : (records[state.session.className] ? {[state.session.className]: records[state.session.className]} : {});
+      if(!Object.keys(scoped).length){ setStatus("meal-status", "Немає даних за цю дату", true); return; }
+      setStatus("meal-status", "Надсилання…", false);
+      const res = await sendTelegram(dailySummaryMessage(state.date, scoped));
+      setStatus("meal-status", res.ok ? "Зведення надіслано в Telegram" : "Помилка: " + res.error, !res.ok);
+    });
+    await renderMealSlips();
+  }
+  async function renderMealSlips(){
+    const priv = isPriv();
+    const records = await loadDateRecords(state.date);
+    let clsList = Object.keys(records).sort();
+    if(!priv) clsList = clsList.filter(c => c === state.session.className);
+    document.getElementById("print-title").textContent = `Заявки на харчування — ${fmtDate(state.date)}`;
+    document.getElementById("meal-count-label").textContent = clsList.length ? `Класів з даними на цю дату: ${clsList.length}` : "Немає даних відвідування на цю дату";
+    const area = document.getElementById("print-area");
+    if(!clsList.length){ area.innerHTML = `<div class="empty">Спочатку внесіть дані відвідування для потрібної дати на вкладці «Відвідування».</div>`; return; }
+    area.innerHTML = `<div class="slip-grid">${clsList.map(c => slipHtml(c, records[c])).join("")}</div>`;
+    clsList.forEach(c => {
+      const safeId = cssSafe(c);
+      const brInput = document.getElementById("br-"+safeId), luInput = document.getElementById("lu-"+safeId), sigInput = document.getElementById("sig-"+safeId);
+      [brInput, luInput, sigInput].forEach(inp => {
+        inp.addEventListener("change", async () => {
+          const rec = records[c];
+          rec.breakfast = brInput.value; rec.lunch = luInput.value; rec.signature = sigInput.value;
+          await setAttendance(state.date, c, rec);
+          invalidateDateCache(state.date);
+        });
+      });
+    });
+  }
+  function slipHtml(cls, rec){
+    const present = computePresent(rec);
+    const defaults = mealDefaults(cls, present);
+    const breakfast = (rec.breakfast === null || rec.breakfast === undefined || rec.breakfast === "") ? defaults.breakfast : rec.breakfast;
+    const lunch = (rec.lunch === null || rec.lunch === undefined || rec.lunch === "") ? defaults.lunch : rec.lunch;
+    const safeId = cssSafe(cls);
+    const note = mealRuleNote(cls);
+    return `
+      <div class="slip">
+        <h3>Заявка на харчування</h3>
+        <div class="row"><label>Дата</label><strong>${fmtDate(state.date)}</strong></div>
+        <div class="row"><label>Клас</label><strong>${escapeHtml(cls)}</strong></div>
+        <div class="row"><label>Сніданок</label><input type="number" min="0" id="br-${safeId}" value="${breakfast}"> порцій</div>
+        <div class="row"><label>Обід</label><input type="number" min="0" id="lu-${safeId}" value="${lunch}"> порцій</div>
+        <div class="row"><label>Підпис</label><input type="text" id="sig-${safeId}" value="${escapeHtml(rec.signature || "")}" placeholder="ПІБ"></div>
+        ${note ? `<div class="rule-note">${note}</div>` : ""}
+      </div>`;
+  }
+
+  // ----- History tab -----
+  async function renderHistory(){
+    const priv = isPriv();
+    if(!priv && !state.session.className){
+      view.innerHTML = `<div class="card"><div class="empty">Вашому акаунту ще не призначено клас.</div></div>`;
+      return;
+    }
+    view.innerHTML = `
+      <div class="card">
+        <h2>Історія за датами</h2>
+        <p class="hint">Оберіть дату, щоб переглянути звіт відвідування або перейти до заявок.</p>
+        <div class="history-list" id="history-holder"><div class="empty">Завантаження…</div></div>
+      </div>
+      <div class="card" id="history-detail-card" style="display:none;">
+        <h2 id="history-detail-title"></h2>
+        <div id="history-detail-holder"></div>
+        <div style="margin-top:14px;"><button class="btn secondary" id="goto-meals-btn">Перейти до заявок на харчування за цю дату</button></div>
+      </div>`;
+    const dates = priv ? await loadAllDates() : await loadDatesForClass(state.session.className);
+    const holder = document.getElementById("history-holder");
+    if(!dates.length){ holder.innerHTML = `<div class="empty">Історія поки порожня.</div>`; return; }
+    holder.innerHTML = dates.map(d => `<div class="history-item" data-date="${d.date}"><span>${fmtDate(d.date)}</span>${priv ? `<span class="cnt">${d.count} клас(ів)</span>` : ""}</div>`).join("");
+    holder.querySelectorAll(".history-item").forEach(el => el.addEventListener("click", () => showHistoryDetail(el.dataset.date)));
+  }
+  async function showHistoryDetail(date){
+    const priv = isPriv();
+    const card = document.getElementById("history-detail-card");
+    card.style.display = "block";
+    document.getElementById("history-detail-title").textContent = "Відвідування — " + fmtDate(date);
+    const holder = document.getElementById("history-detail-holder");
+    holder.innerHTML = `<div class="empty">Завантаження…</div>`;
+    const records = {};
+    try{
+      const listing = await window.storage.list("att_" + date + "_", true);
+      const keys = (listing && listing.keys) || [];
+      for(const k of keys){ const cls = decodeClassFromKey(k, date); const r = await window.storage.get(k, true); if(r) records[cls] = JSON.parse(r.value); }
+    }catch(e){}
+    let clsList = Object.keys(records).sort();
+    if(!priv) clsList = clsList.filter(c => c === state.session.className);
+    if(!clsList.length){ holder.innerHTML = `<div class="empty">Немає даних.</div>`; }
+    else{
+      holder.innerHTML = clsList.map(c => absenteeBlockHtml(c, records[c])).join("");
+    }
+    document.getElementById("goto-meals-btn").onclick = () => { state.date = date; state.tab = "meals"; renderTabsNav(); render(); };
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
