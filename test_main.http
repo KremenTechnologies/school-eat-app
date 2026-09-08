@@ -1,11 +1,47 @@
-# Test your FastAPI endpoints
+### Login by phone + name (case / whitespace insensitive)
+POST http://localhost:8000/api/login
+Content-Type: application/json
 
-GET http://127.0.0.1:8000/
-Accept: application/json
+{"phone": "067 707 40 27", "name": "олексій   куценко"}
 
-###
+### Who am I
+GET http://localhost:8000/api/me
 
-GET http://127.0.0.1:8000/hello/User
-Accept: application/json
+### SMS: request code (needs real provider; SMS_DEBUG=1 prints to stdout)
+POST http://localhost:8000/api/login/sms/request
+Content-Type: application/json
 
-###
+{"phone": "0977322904"}
+
+### SMS: verify
+POST http://localhost:8000/api/login/sms/verify
+Content-Type: application/json
+
+{"phone": "0977322904", "code": "000000"}
+
+### Classes
+GET http://localhost:8000/api/classes
+
+### Add classes
+POST http://localhost:8000/api/classes
+Content-Type: application/json
+
+[{"name": "5-А"}, {"name": "7-Б"}]
+
+### Upsert attendance
+PUT http://localhost:8000/api/attendance/2026-09-08/5-А
+Content-Type: application/json
+
+{"registered": 25, "abroad": 1, "illness_count": 2, "illness_names": "Іваненко Іван, Петренко Петро"}
+
+### Attendance for a date
+GET http://localhost:8000/api/attendance?date=2026-09-08
+
+### Attendance for a month
+GET http://localhost:8000/api/attendance?month=2026-09
+
+### Send meal summary to Telegram
+POST http://localhost:8000/api/attendance/summary?date=2026-09-08
+
+### Logout
+POST http://localhost:8000/api/logout

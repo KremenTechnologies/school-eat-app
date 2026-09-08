@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "school-eat",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--env-file", ".env", "uvicorn", "app.main:app", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

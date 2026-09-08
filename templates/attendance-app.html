@@ -179,31 +179,18 @@
 (function(){
   "use strict";
 
-  if (!window.storage) {
-    window.storage = {
-      get: function(key) {
-        var val = localStorage.getItem(key);
-        return Promise.resolve(val !== null ? { value: val } : null);
-      },
-      set: function(key, val) {
-        localStorage.setItem(key, val);
-        return Promise.resolve(true);
-      },
-      delete: function(key) {
-        localStorage.removeItem(key);
-        return Promise.resolve(true);
-      },
-      list: function(prefix) {
-        var keys = [];
-        for (var i = 0; i < localStorage.length; i++) {
-          var k = localStorage.key(i);
-          if (!prefix || (k && k.indexOf(prefix) === 0)) {
-            keys.push(k);
-          }
-        }
-        return Promise.resolve({ keys: keys });
-      }
-    };
+  async function api(method, path, body){
+    const opt = {method, headers:{}, credentials:"same-origin"};
+    if(body !== undefined){ opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+    const resp = await fetch("/api" + path, opt);
+    let data = null;
+    try{ data = await resp.json(); }catch(e){}
+    if(!resp.ok){
+      const err = new Error((data && data.detail) || ("HTTP " + resp.status));
+      err.status = resp.status;
+      throw err;
+    }
+    return data;
   }
 
   // Grades that receive only breakfast, and grades that receive only lunch.
@@ -214,8 +201,10 @@
     {key:"illness", label:"По хворобі"},
     {key:"grvi", label:"По ГРВІ"},
     {key:"family", label:"По сімейних причинах"},
-    {key:"noReason", label:"Без поважної причини"}
+    {key:"no_reason", label:"Без поважної причини"}
   ];
+  const cnt = k => k + "_count";
+  const nms = k => k + "_names";
 
   const state = {
     tab: "attendance",
@@ -229,7 +218,7 @@
     historyDates: null,
     selectedClass: null,
     reportMonth: monthPrefixDefault(),
-    loginMode: "login" // "login" | "bootstrap"
+    loginMode: "name" // "name" | "sms"
   };
 
   function monthPrefixDefault(){
@@ -243,15 +232,11 @@
     return d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate());
   }
   function fmtDate(iso){ const [y,m,d] = iso.split("-"); return `${d}.${m}.${y}`; }
-  function attKey(date, cls){ return "att_" + date + "_" + encodeURIComponent(cls); }
-  function decodeClassFromKey(key, date){ return decodeURIComponent(key.slice(("att_"+date+"_").length)); }
   function escapeHtml(s){
     return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
   function normPhone(p){ return String(p||"").replace(/\D/g,""); }
-  function normPass(p){ return String(p||"").trim().replace(/\s+/g," ").toLowerCase(); }
   function num(v){ const n = parseInt(v,10); return isNaN(n) ? 0 : n; }
-  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
   function cssSafe(s){ return s.replace(/[^a-zA-Z0-9\u0430-\u044f\u0410-\u042f\u0456\u0406\u0457\u0407\u0454\u0404]/g, "_"); }
   function parseGrade(cls){ const m = String(cls||"").match(/(\d{1,2})/); return m ? parseInt(m[1],10) : null; }
   function mealDefaults(cls, present){
@@ -283,151 +268,80 @@
     return "teacher";
   }
 
-  // ---------- storage: shared config ----------
+  // ---------- data layer (REST) ----------
   async function loadClasses(){
-    try{ const r = await window.storage.get("classes", true); state.classes = r ? JSON.parse(r.value) : []; }
-    catch(e){ state.classes = []; }
+    try{ state.classes = await api("GET", "/classes"); }catch(e){ state.classes = []; }
   }
-  async function saveClasses(list){
-    state.classes = list;
-    try{ await window.storage.set("classes", JSON.stringify(list), true); return true; }catch(e){ return false; }
+  async function addClasses(names){
+    state.classes = await api("POST", "/classes", names.map(n => ({name:n})));
+  }
+  async function deleteClass(name){
+    await api("DELETE", "/classes/" + encodeURIComponent(name));
+    await loadClasses();
   }
   async function loadUsers(){
-    try{ const r = await window.storage.get("users", true); state.users = r ? JSON.parse(r.value) : []; }
-    catch(e){ state.users = []; }
+    try{ state.users = await api("GET", "/users"); }catch(e){ state.users = []; }
   }
-  async function saveUsers(list){
-    state.users = list;
-    try{ await window.storage.set("users", JSON.stringify(list), true); return true; }catch(e){ return false; }
-  }
+  async function addUser(u){ await api("POST", "/users", u); await loadUsers(); }
+  async function patchUser(id, patch){ await api("PATCH", "/users/" + id, patch); await loadUsers(); }
+  async function deleteUser(id){ await api("DELETE", "/users/" + id); await loadUsers(); }
   async function loadSettings(){
-    try{ const r = await window.storage.get("settings", true); state.settings = r ? JSON.parse(r.value) : {botToken:"",chatId:""}; }
+    try{ state.settings = await api("GET", "/settings"); }
     catch(e){ state.settings = {botToken:"", chatId:""}; }
   }
   async function saveSettings(s){
+    await api("PUT", "/settings", s);
     state.settings = s;
-    try{ await window.storage.set("settings", JSON.stringify(s), true); return true; }catch(e){ return false; }
   }
   async function loadSession(){
-    try{ const r = await window.storage.get("session", false); state.session = r ? JSON.parse(r.value) : null; }
-    catch(e){ state.session = null; }
-  }
-  async function setSession(s){
-    state.session = s;
-    try{ await window.storage.set("session", JSON.stringify(s), false); }catch(e){}
+    try{ state.session = await api("GET", "/me"); }catch(e){ state.session = null; }
   }
   async function clearSession(){
+    try{ await api("POST", "/logout"); }catch(e){}
     state.session = null;
-    try{ await window.storage.delete("session", false); }catch(e){}
-  }
-  async function getAttendance(date, cls){
-    try{ const r = await window.storage.get(attKey(date, cls), true); return r ? JSON.parse(r.value) : null; }
-    catch(e){ return null; }
   }
   async function setAttendance(date, cls, record){
-    try{ await window.storage.set(attKey(date, cls), JSON.stringify(record), true); return true; }
-    catch(e){ return false; }
+    return api("PUT", `/attendance/${date}/${encodeURIComponent(cls)}`, record);
   }
   async function deleteAttendance(date, cls){
-    try{ await window.storage.delete(attKey(date, cls), true); return true; }catch(e){ return false; }
+    await api("DELETE", `/attendance/${date}/${encodeURIComponent(cls)}`);
+  }
+  async function sendSummary(date){
+    return api("POST", "/attendance/summary?date=" + date);
   }
   async function loadDateRecords(date){
     if(state.dateCacheDate === date && state.dateCache) return state.dateCache;
     const out = {};
     try{
-      const listing = await window.storage.list("att_" + date + "_", true);
-      const keys = (listing && listing.keys) || [];
-      for(const k of keys){
-        const cls = decodeClassFromKey(k, date);
-        try{ const r = await window.storage.get(k, true); if(r) out[cls] = JSON.parse(r.value); }catch(e){}
-      }
+      const rows = await api("GET", "/attendance?date=" + date);
+      rows.forEach(r => { out[r.class_name] = r; });
     }catch(e){}
     state.dateCache = out; state.dateCacheDate = date;
     return out;
   }
-  function invalidateDateCache(date){ if(state.dateCacheDate === date){ state.dateCacheDate = null; state.dateCache = {}; } }
+  function invalidateDateCache(date){ if(state.dateCacheDate === date){ state.dateCacheDate = null; state.dateCache = {}; } state.historyDates = null; }
   async function loadAllDates(){
     if(state.historyDates) return state.historyDates;
-    const dateCounts = {};
+    const counts = {};
     try{
-      const listing = await window.storage.list("att_", true);
-      const keys = (listing && listing.keys) || [];
-      for(const k of keys){ const date = k.slice(4, 14); dateCounts[date] = (dateCounts[date] || 0) + 1; }
+      const rows = await api("GET", "/attendance");
+      rows.forEach(r => { counts[r.date] = (counts[r.date] || 0) + 1; });
     }catch(e){}
-    const dates = Object.keys(dateCounts).sort().reverse().map(d => ({date:d, count:dateCounts[d]}));
-    state.historyDates = dates;
-    return dates;
+    state.historyDates = Object.keys(counts).sort().reverse().map(d => ({date:d, count:counts[d]}));
+    return state.historyDates;
   }
   async function loadDatesForClass(cls){
-    const dateSet = {};
+    const set = {};
     try{
-      const listing = await window.storage.list("att_", true);
-      const keys = (listing && listing.keys) || [];
-      for(const k of keys){
-        const date = k.slice(4, 14);
-        const c = decodeClassFromKey(k, date);
-        if(c === cls) dateSet[date] = true;
-      }
+      const rows = await api("GET", "/attendance");
+      rows.forEach(r => { if(r.class_name === cls) set[r.date] = true; });
     }catch(e){}
-    return Object.keys(dateSet).sort().reverse().map(d => ({date:d, count:1}));
+    return Object.keys(set).sort().reverse().map(d => ({date:d, count:1}));
   }
   function computePresent(rec){
-    const registered = num(rec.registered), abroad = num(rec.abroad), individual = num(rec.individual);
-    const absentTotal = ABSENCE_KEYS.reduce((s,a) => s + num(rec[a.key+"Count"]), 0);
-    const present = registered - abroad - individual - absentTotal;
+    const absentTotal = ABSENCE_KEYS.reduce((s,a) => s + num(rec[cnt(a.key)]), 0);
+    const present = num(rec.registered) - num(rec.abroad) - num(rec.individual) - absentTotal;
     return present < 0 ? 0 : present;
-  }
-
-  // ---------- Telegram ----------
-  async function sendTelegram(text){
-    if(!state.settings.botToken || !state.settings.chatId){
-      return {ok:false, error:"Telegram не налаштовано (вкладка «Налаштування»)"};
-    }
-    try{
-      const url = `https://api.telegram.org/bot${state.settings.botToken}/sendMessage`;
-      const resp = await fetch(url, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({chat_id: state.settings.chatId, text, parse_mode:"HTML"})
-      });
-      const data = await resp.json().catch(()=>({ok:false, description:"невірна відповідь сервера"}));
-      if(!data.ok) return {ok:false, error: data.description || "помилка Telegram API"};
-      return {ok:true};
-    }catch(e){
-      return {ok:false, error: "мережева помилка: " + e.message};
-    }
-  }
-  function attendanceMessage(date, cls, rec){
-    const present = computePresent(rec);
-    const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[a.key+"Count"]),0);
-    let lines = [
-      `<b>Відвідування оновлено</b>`,
-      `Дата: ${fmtDate(date)}`,
-      `Клас: <b>${escapeHtml(cls)}</b>`,
-      `За реєстром: ${num(rec.registered)}, присутні: <b>${present}</b>, відсутні: ${absentTotal}`
-    ];
-    ABSENCE_KEYS.forEach(a => {
-      const c = num(rec[a.key+"Count"]);
-      if(c > 0) lines.push(`— ${a.label}: ${c}${rec[a.key+"Names"] ? " (" + escapeHtml(rec[a.key+"Names"]) + ")" : ""}`);
-    });
-    if(state.session && state.session.name) lines.push(`Внесено: ${escapeHtml(state.session.name)}`);
-    return lines.join("\n");
-  }
-  function dailySummaryMessage(date, records){
-    const clsList = Object.keys(records).sort();
-    let lines = [`<b>Зведення харчування — ${fmtDate(date)}</b>`, ""];
-    let totalBr = 0, totalLu = 0;
-    clsList.forEach(c => {
-      const r = records[c];
-      const present = computePresent(r);
-      const defaults = mealDefaults(c, present);
-      const br = (r.breakfast===null||r.breakfast===undefined||r.breakfast==="") ? defaults.breakfast : num(r.breakfast);
-      const lu = (r.lunch===null||r.lunch===undefined||r.lunch==="") ? defaults.lunch : num(r.lunch);
-      totalBr += br; totalLu += lu;
-      lines.push(`${escapeHtml(c)}: присутні ${present}, сніданок ${br}, обід ${lu}`);
-    });
-    lines.push("", `Разом: сніданків ${totalBr}, обідів ${totalLu}`);
-    return lines.join("\n");
   }
 
   // ---------- rendering shell ----------
@@ -468,9 +382,21 @@
       b.addEventListener("click", () => { state.tab = b.dataset.tab; renderTabsNav(); render(); });
     });
   }
+  async function loadShared(){
+    const jobs = [loadClasses()];
+    if(isPriv()) jobs.push(loadUsers(), loadSettings());
+    await Promise.all(jobs);
+  }
   async function boot(){
-    await Promise.all([loadClasses(), loadUsers(), loadSettings(), loadSession()]);
+    await loadSession();
+    if(state.session) await loadShared();
     renderUserBar();
+    renderTabsNav();
+    render();
+  }
+  async function finishLogin(u){
+    state.session = u;
+    await loadShared();
     renderTabsNav();
     render();
   }
@@ -487,62 +413,56 @@
     return renderAttendance();
   }
 
-  // ----- Login / bootstrap -----
+  // ----- Login -----
   function renderLogin(){
     tabsNav.innerHTML = "";
-    if(!state.users.length){
-      view.innerHTML = `
-        <div class="login-wrap">
-          <div class="card">
-            <h2>Перший запуск</h2>
-            <p class="hint">Ще немає жодного облікового запису. Створіть обліковий запис розробника сайту — він матиме доступ до всіх функцій, зможе додавати адміністраторів і вчителів. Паролем для входу буде ваше прізвище та ім'я, яке ви вкажете нижче.</p>
-            <div class="field"><label>Прізвище та ім'я</label><input type="text" id="boot-name" placeholder="напр. Іваненко Олена"></div>
-            <div class="field" style="margin-top:12px;"><label>Номер телефону (буде логіном)</label><input type="tel" id="boot-phone" placeholder="+380 XX XXX XX XX"></div>
-            <button class="btn" id="boot-btn" style="margin-top:16px;">Створити обліковий запис розробника</button>
-            <div class="status-msg" id="boot-status"></div>
-          </div>
-        </div>`;
-      document.getElementById("boot-btn").addEventListener("click", async () => {
-        const name = document.getElementById("boot-name").value.trim();
-        const phone = document.getElementById("boot-phone").value.trim();
-        if(!name || !phone){ setStatus("boot-status", "Заповніть прізвище та ім'я, і номер телефону", true); return; }
-        const u = {id:uid(), name, phone, role:"developer", className:""};
-        await saveUsers([u]);
-        await setSession({userId:u.id, name:u.name, role:"developer", className:""});
-        renderTabsNav();
-        render();
-      });
-      return;
-    }
+    const mode = state.loginMode === "sms" ? "sms" : "name";
     view.innerHTML = `
       <div class="login-wrap">
         <div class="card">
           <h2>Вхід</h2>
-          <p class="hint">Логін — номер телефону, пароль — ваше прізвище та ім'я, як його вказав розробник або адміністратор при створенні вашого облікового запису.</p>
-          <div class="field">
-            <label>Номер телефону</label>
-            <input type="tel" id="login-phone" placeholder="+380 XX XXX XX XX">
-          </div>
-          <div class="field" style="margin-top:12px;">
-            <label>Пароль (прізвище та ім'я)</label>
-            <input type="password" id="login-pass" placeholder="напр. Іваненко Олена">
-          </div>
-          <button class="btn" id="login-btn" style="margin-top:16px;">Увійти</button>
+          <nav class="tabs no-print" style="margin-bottom:16px;">
+            <button data-lm="name" class="${mode==='name'?'active':''}">За прізвищем</button>
+            <button data-lm="sms" class="${mode==='sms'?'active':''}">За SMS-кодом</button>
+          </nav>
+          <div class="field"><label>Номер телефону</label><input type="tel" id="login-phone" placeholder="+380 XX XXX XX XX"></div>
+          ${mode==='name' ? `
+            <div class="field" style="margin-top:12px;"><label>Прізвище та ім'я</label><input type="text" id="login-name" placeholder="напр. Іваненко Олена"></div>
+            <button class="btn" id="login-btn" style="margin-top:16px;">Увійти</button>
+          ` : `
+            <div class="field-row" style="margin-top:12px;">
+              <div class="field"><label>Код із SMS</label><input type="text" id="login-code" inputmode="numeric" placeholder="6 цифр"></div>
+              <div class="field" style="flex:0; align-self:flex-end;"><button class="btn secondary" id="send-code-btn">Надіслати код</button></div>
+            </div>
+            <button class="btn" id="verify-code-btn" style="margin-top:8px;">Увійти</button>
+          `}
           <div class="status-msg" id="login-status"></div>
         </div>
       </div>`;
-    document.getElementById("login-btn").addEventListener("click", async () => {
-      const phone = document.getElementById("login-phone").value;
-      const pass = document.getElementById("login-pass").value;
-      if(!normPhone(phone)){ setStatus("login-status", "Введіть номер телефону", true); return; }
-      const candidates = state.users.filter(u => normPhone(u.phone) === normPhone(phone));
-      if(!candidates.length){ setStatus("login-status", "Користувача з таким номером телефону не знайдено", true); return; }
-      const u = candidates.find(c => normPass(pass) === normPass(c.name));
-      if(!u){ setStatus("login-status", "Невірний пароль", true); return; }
-      await setSession({userId:u.id, name:u.name, role:u.role, className:u.className||""});
-      renderTabsNav();
-      render();
-    });
+    view.querySelectorAll("button[data-lm]").forEach(b => b.addEventListener("click", () => {
+      state.loginMode = b.dataset.lm; renderLogin();
+    }));
+    const phoneVal = () => document.getElementById("login-phone").value;
+    if(mode === "name"){
+      document.getElementById("login-btn").addEventListener("click", async () => {
+        const phone = phoneVal(), name = document.getElementById("login-name").value;
+        if(!normPhone(phone) || !name.trim()){ setStatus("login-status", "Введіть телефон і прізвище та ім'я", true); return; }
+        try{ await finishLogin(await api("POST", "/login", {phone, name})); }
+        catch(e){ setStatus("login-status", e.message, true); }
+      });
+    } else {
+      document.getElementById("send-code-btn").addEventListener("click", async () => {
+        if(!normPhone(phoneVal())){ setStatus("login-status", "Введіть номер телефону", true); return; }
+        setStatus("login-status", "Надсилання…", false);
+        try{ await api("POST", "/login/sms/request", {phone: phoneVal()}); setStatus("login-status", "Код надіслано у SMS", false); }
+        catch(e){ setStatus("login-status", e.message, true); }
+      });
+      document.getElementById("verify-code-btn").addEventListener("click", async () => {
+        const phone = phoneVal(), code = document.getElementById("login-code").value;
+        try{ await finishLogin(await api("POST", "/login/sms/verify", {phone, code})); }
+        catch(e){ setStatus("login-status", e.message, true); }
+      });
+    }
   }
   function setStatus(id, msg, isErr){
     const el = document.getElementById(id);
@@ -596,7 +516,7 @@
       </div>
       <div class="card">
         <h2>Сповіщення в Telegram</h2>
-        <p class="hint">Токен бота видно у коді сторінки — використовуйте окремого бота, створеного лише для цього внутрішнього інструмента. Повідомлення надсилаються в один чат/групу (chat id).</p>
+        <p class="hint">Токен зберігається на сервері й не потрапляє у браузер. Повідомлення надсилаються в один чат/групу (chat id).</p>
         <div class="field-row">
           <div class="field"><label>Bot Token</label><input type="text" id="tg-token" value="${escapeHtml(state.settings.botToken||"")}" placeholder="123456:AA...-..."></div>
           <div class="field"><label>Chat ID</label><input type="text" id="tg-chat" value="${escapeHtml(state.settings.chatId||"")}" placeholder="-100123456789"></div>
@@ -612,9 +532,8 @@
       const input = document.getElementById("new-class-input");
       const val = input.value.trim();
       if(!val) return;
-      if(state.classes.includes(val)){ setStatus("classes-status", "Такий клас уже є", true); return; }
-      const ok = await saveClasses([...state.classes, val]);
-      setStatus("classes-status", ok ? `Клас «${val}» додано` : "Не вдалося зберегти", !ok);
+      try{ await addClasses([val]); }catch(e){ setStatus("classes-status", e.message, true); return; }
+      setStatus("classes-status", `Клас «${val}» додано`, false);
       input.value = "";
       renderSettings();
     });
@@ -622,10 +541,8 @@
       const ta = document.getElementById("bulk-class-input");
       const names = ta.value.split("\n").map(s => s.trim()).filter(Boolean);
       if(!names.length) return;
-      const set = new Set(state.classes);
-      names.forEach(n => set.add(n));
-      const ok = await saveClasses(Array.from(set));
-      setStatus("classes-status", ok ? `Додано ${names.length} клас(ів)` : "Не вдалося зберегти", !ok);
+      try{ await addClasses(names); }catch(e){ setStatus("classes-status", e.message, true); return; }
+      setStatus("classes-status", `Додано ${names.length} клас(ів)`, false);
       ta.value = "";
       renderSettings();
     });
@@ -635,10 +552,8 @@
         const name = document.getElementById("new-a-name").value.trim();
         const phone = document.getElementById("new-a-phone").value.trim();
         if(!name || !phone){ setStatus("admins-status", "Вкажіть ім'я і телефон", true); return; }
-        if(state.users.some(u => normPhone(u.phone) === normPhone(phone))){ setStatus("admins-status", "Цей номер телефону вже використовується", true); return; }
-        const list = [...state.users, {id:uid(), name, phone, role:"admin", className:""}];
-        const ok = await saveUsers(list);
-        setStatus("admins-status", ok ? `Додано адміністратора «${name}»` : "Не вдалося зберегти", !ok);
+        try{ await addUser({name, phone, role:"admin"}); }catch(e){ setStatus("admins-status", e.message, true); return; }
+        setStatus("admins-status", `Додано адміністратора «${name}»`, false);
         renderSettings();
       });
     }
@@ -647,25 +562,25 @@
       const phone = document.getElementById("new-t-phone").value.trim();
       const className = document.getElementById("new-t-class").value;
       if(!name || !phone){ setStatus("teachers-status", "Вкажіть ім'я і телефон", true); return; }
-      if(state.users.some(u => normPhone(u.phone) === normPhone(phone))){ setStatus("teachers-status", "Цей номер телефону вже використовується", true); return; }
-      const list = [...state.users, {id:uid(), name, phone, role:"teacher", className}];
-      const ok = await saveUsers(list);
-      setStatus("teachers-status", ok ? `Додано «${name}»` : "Не вдалося зберегти", !ok);
+      try{ await addUser({name, phone, role:"teacher", className}); }catch(e){ setStatus("teachers-status", e.message, true); return; }
+      setStatus("teachers-status", `Додано «${name}»`, false);
       renderSettings();
     });
     document.getElementById("save-tg-btn").addEventListener("click", async () => {
       const botToken = document.getElementById("tg-token").value.trim();
       const chatId = document.getElementById("tg-chat").value.trim();
-      const ok = await saveSettings({botToken, chatId});
-      setStatus("tg-status", ok ? "Налаштування Telegram збережено" : "Не вдалося зберегти", !ok);
+      try{ await saveSettings({botToken, chatId}); setStatus("tg-status", "Налаштування Telegram збережено", false); }
+      catch(e){ setStatus("tg-status", e.message, true); }
     });
     document.getElementById("test-tg-btn").addEventListener("click", async () => {
       const botToken = document.getElementById("tg-token").value.trim();
       const chatId = document.getElementById("tg-chat").value.trim();
-      await saveSettings({botToken, chatId});
       setStatus("tg-status", "Надсилання…", false);
-      const res = await sendTelegram("Тестове повідомлення від сайту обліку відвідування.");
-      setStatus("tg-status", res.ok ? "Тестове повідомлення надіслано" : "Помилка: " + res.error, !res.ok);
+      try{
+        await saveSettings({botToken, chatId});
+        await api("POST", "/telegram/test");
+        setStatus("tg-status", "Тестове повідомлення надіслано", false);
+      }catch(e){ setStatus("tg-status", "Помилка: " + e.message, true); }
     });
   }
   function renderClassChips(){
@@ -677,7 +592,7 @@
       btn.addEventListener("click", async () => {
         const cls = btn.dataset.cls;
         if(!confirm(`Видалити клас «${cls}»? Раніше збережені записи не будуть видалені.`)) return;
-        await saveClasses(state.classes.filter(c => c !== cls));
+        try{ await deleteClass(cls); }catch(e){ setStatus("classes-status", e.message, true); return; }
         renderSettings();
       });
     });
@@ -694,20 +609,15 @@
       </div>`).join("");
     box.querySelectorAll("input[data-field]").forEach(el => {
       el.addEventListener("change", async () => {
-        const id = el.dataset.id, field = el.dataset.field;
-        const u = state.users.find(x => x.id === id);
-        if(!u) return;
-        u[field] = el.value;
-        await saveUsers(state.users);
-        setStatus("admins-status", "Дані оновлено", false);
+        try{ await patchUser(el.dataset.id, {[el.dataset.field]: el.value}); setStatus("admins-status", "Дані оновлено", false); }
+        catch(e){ setStatus("admins-status", e.message, true); }
       });
     });
     box.querySelectorAll("button[data-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
-        const id = btn.dataset.del;
-        const u = state.users.find(x => x.id === id);
+        const u = admins.find(x => String(x.id) === btn.dataset.del);
         if(!confirm(`Видалити адміністратора «${u?u.name:""}»?`)) return;
-        await saveUsers(state.users.filter(x => x.id !== id));
+        try{ await deleteUser(btn.dataset.del); }catch(e){ setStatus("admins-status", e.message, true); return; }
         renderSettings();
       });
     });
@@ -729,20 +639,15 @@
       </div>`).join("");
     box.querySelectorAll("input[data-field], select[data-field]").forEach(el => {
       el.addEventListener("change", async () => {
-        const id = el.dataset.id, field = el.dataset.field;
-        const t = state.users.find(x => x.id === id);
-        if(!t) return;
-        t[field] = el.value;
-        await saveUsers(state.users);
-        setStatus("teachers-status", "Дані оновлено", false);
+        try{ await patchUser(el.dataset.id, {[el.dataset.field]: el.value}); setStatus("teachers-status", "Дані оновлено", false); }
+        catch(e){ setStatus("teachers-status", e.message, true); }
       });
     });
     box.querySelectorAll("button[data-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
-        const id = btn.dataset.del;
-        const t = state.users.find(x => x.id === id);
+        const t = teachers.find(x => String(x.id) === btn.dataset.del);
         if(!confirm(`Видалити вчителя «${t?t.name:""}»?`)) return;
-        await saveUsers(state.users.filter(x => x.id !== id));
+        try{ await deleteUser(btn.dataset.del); }catch(e){ setStatus("teachers-status", e.message, true); return; }
         renderSettings();
       });
     });
@@ -807,8 +712,8 @@
           <div class="absence-box">
             <div class="absence-title">${a.label}</div>
             <div class="field-row" style="margin-bottom:8px;">
-              <div class="field narrow" style="flex:0 0 90px;"><label>Кількість</label><input type="number" min="0" class="absence-count" data-key="${a.key}" id="f-${a.key}-count" value="${rec[a.key+'Count'] ?? ""}"></div>
-              <div class="field"><label>Прізвища учнів</label><input type="text" id="f-${a.key}-names" value="${escapeHtml(rec[a.key+'Names'] || "")}" placeholder="Прізвище Ім'я, ..."></div>
+              <div class="field narrow" style="flex:0 0 90px;"><label>Кількість</label><input type="number" min="0" class="absence-count" data-key="${a.key}" id="f-${a.key}-count" value="${rec[cnt(a.key)] ?? ""}"></div>
+              <div class="field"><label>Прізвища учнів</label><input type="text" id="f-${a.key}-names" value="${escapeHtml(rec[nms(a.key)] || "")}" placeholder="Прізвище Ім'я, ..."></div>
             </div>
           </div>`).join("")}
       </div>
@@ -819,31 +724,31 @@
     document.getElementById("save-att-btn").addEventListener("click", async () => {
       const newRec = readFormRecord(rec);
       setStatus("att-status", "Збереження…", false);
-      const ok = await setAttendance(state.date, state.selectedClass, newRec);
+      let res;
+      try{ res = await setAttendance(state.date, state.selectedClass, newRec); }
+      catch(e){ setStatus("att-status", "Не вдалося зберегти: " + e.message, true); return; }
       invalidateDateCache(state.date);
-      state.historyDates = null;
-      if(!ok){ setStatus("att-status", "Не вдалося зберегти", true); return; }
-      setStatus("att-status", "Збережено. Надсилання в Telegram…", false);
-      const tg = await sendTelegram(attendanceMessage(state.date, state.selectedClass, newRec));
-      setStatus("att-status", tg.ok ? "Збережено, повідомлення надіслано в Telegram" : "Збережено (Telegram: " + tg.error + ")", false);
+      const tg = res.telegram || {};
+      setStatus("att-status", tg.ok ? "Збережено, повідомлення надіслано в Telegram" : "Збережено (Telegram: " + (tg.error || "—") + ")", false);
+      await renderAttendanceForm();
       if(document.getElementById("att-summary-holder")) await renderAttendanceSummary();
     });
     const delBtn = document.getElementById("del-att-btn");
     if(delBtn){
       delBtn.addEventListener("click", async () => {
         if(!confirm(`Видалити дані відвідування для класу «${state.selectedClass}» за ${fmtDate(state.date)}?`)) return;
-        await deleteAttendance(state.date, state.selectedClass);
+        try{ await deleteAttendance(state.date, state.selectedClass); }
+        catch(e){ setStatus("att-status", e.message, true); return; }
         invalidateDateCache(state.date);
-        state.historyDates = null;
         await renderAttendanceForm();
         if(document.getElementById("att-summary-holder")) await renderAttendanceSummary();
       });
     }
   }
   function defaultRecord(){
-    return {registered:"", abroad:"", individual:"", illnessCount:"", illnessNames:"",
-      grviCount:"", grviNames:"", familyCount:"", familyNames:"", noReasonCount:"", noReasonNames:"",
-      breakfast:null, lunch:null, signature:""};
+    const r = {registered:"", abroad:"", individual:"", breakfast:null, lunch:null, signature:""};
+    ABSENCE_KEYS.forEach(a => { r[cnt(a.key)] = ""; r[nms(a.key)] = ""; });
+    return r;
   }
   function readFormRecord(prev){
     const rec = {
@@ -851,8 +756,8 @@
       breakfast: prev.breakfast, lunch: prev.lunch, signature: prev.signature || ""
     };
     ABSENCE_KEYS.forEach(a => {
-      rec[a.key+"Count"] = valNum("f-"+a.key+"-count");
-      rec[a.key+"Names"] = document.getElementById("f-"+a.key+"-names").value.trim();
+      rec[cnt(a.key)] = valNum("f-"+a.key+"-count");
+      rec[nms(a.key)] = document.getElementById("f-"+a.key+"-names").value.trim();
     });
     rec.present = computePresent(rec);
     return rec;
@@ -860,7 +765,7 @@
   function valNum(id){ const el = document.getElementById(id); return el.value === "" ? "" : el.value; }
   function recomputePresentLive(){
     const rec = {registered: valNum("f-registered"), abroad: valNum("f-abroad"), individual: valNum("f-individual")};
-    ABSENCE_KEYS.forEach(a => rec[a.key+"Count"] = valNum("f-"+a.key+"-count"));
+    ABSENCE_KEYS.forEach(a => rec[cnt(a.key)] = valNum("f-"+a.key+"-count"));
     document.getElementById("f-present-computed").innerHTML = computePresent(rec) + "<small>рахується автоматично</small>";
   }
   async function renderAttendanceSummary(){
@@ -879,10 +784,10 @@
         <tbody>
         ${clsList.map(c => {
           const r = records[c];
-          const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(r[a.key+"Count"]),0);
+          const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(r[cnt(a.key)]),0);
           return `<tr><td>${escapeHtml(c)}</td><td class="num">${num(r.registered)}</td><td class="num">${num(r.abroad)}</td><td class="num">${num(r.individual)}</td>
             <td class="num"><strong>${computePresent(r)}</strong></td><td class="num">${absentTotal}</td>
-            ${ABSENCE_KEYS.map(a=>`<td class="num">${num(r[a.key+"Count"])||"—"}</td>`).join("")}</tr>`;
+            ${ABSENCE_KEYS.map(a=>`<td class="num">${num(r[cnt(a.key)])||"—"}</td>`).join("")}</tr>`;
         }).join("")}
         </tbody>
       </table>`;
@@ -891,14 +796,14 @@
   // ----- Report tab (attendance report, with absentee names) -----
   function absenteeBlockHtml(cls, rec){
     const present = computePresent(rec);
-    const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[a.key+"Count"]),0);
+    const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[cnt(a.key)]),0);
     let inner = `<h4>${escapeHtml(cls)} — присутні ${present}, відсутні ${absentTotal}</h4>`;
     let any = false;
     ABSENCE_KEYS.forEach(a => {
-      const c = num(rec[a.key+"Count"]);
+      const c = num(rec[cnt(a.key)]);
       if(c > 0){
         any = true;
-        const names = (rec[a.key+"Names"]||"").trim();
+        const names = (rec[nms(a.key)]||"").trim();
         inner += `<div class="absentee-line"><b>${a.label} (${c}):</b> ${names ? escapeHtml(names) : "<i>прізвища не вказано</i>"}</div>`;
       }
     });
@@ -947,13 +852,13 @@
         return;
       }
       const present = computePresent(rec);
-      const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[a.key+"Count"]),0);
+      const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[cnt(a.key)]),0);
       totals.registered += num(rec.registered);
       totals.present += present;
       totals.absent += absentTotal;
-      ABSENCE_KEYS.forEach(a => totals[a.key] += num(rec[a.key+"Count"]));
+      ABSENCE_KEYS.forEach(a => totals[a.key] += num(rec[cnt(a.key)]));
       tableRows += `<tr><td>${escapeHtml(cls)}</td><td class="num">${num(rec.registered)}</td><td class="num"><strong>${present}</strong></td><td class="num">${absentTotal}</td>
-        ${ABSENCE_KEYS.map(a=>`<td class="num">${num(rec[a.key+"Count"])||"—"}</td>`).join("")}</tr>`;
+        ${ABSENCE_KEYS.map(a=>`<td class="num">${num(rec[cnt(a.key)])||"—"}</td>`).join("")}</tr>`;
       blocks += absenteeBlockHtml(cls, rec);
     });
     tableRows += `<tr class="totals-row"><td>Разом</td><td class="num">${totals.registered}</td><td class="num">${totals.present}</td><td class="num">${totals.absent}</td>
@@ -969,21 +874,13 @@
 
   // ----- Monthly report tab (per-student days & reasons, aggregated over a month) -----
   async function loadMonthRecords(monthPrefix, clsFilter){
-    const out = [];
-    try{
-      const listing = await window.storage.list("att_", true);
-      const keys = (listing && listing.keys) || [];
-      for(const k of keys){
-        const date = k.slice(4, 14);
-        if(date.slice(0,7) !== monthPrefix) continue;
-        const cls = decodeClassFromKey(k, date);
-        if(clsFilter && cls !== clsFilter) continue;
-        try{ const r = await window.storage.get(k, true); if(r) out.push({date, cls, rec: JSON.parse(r.value)}); }catch(e){}
-      }
-    }catch(e){}
-    return out;
+    let rows = [];
+    try{ rows = await api("GET", "/attendance?month=" + monthPrefix); }catch(e){}
+    return rows
+      .filter(r => !clsFilter || r.class_name === clsFilter)
+      .map(r => ({date: r.date, cls: r.class_name, rec: r}));
   }
-  const REASON_CODE = {illness:"хв", grvi:"хв", family:"Н", noReason:"Б"};
+  const REASON_CODE = {illness:"хв", grvi:"хв", family:"Н", no_reason:"Б"};
   function normNameKey(name){ return String(name||"").trim().toLowerCase().replace(/\s+/g," "); }
   function toDisplayName(name){
     return String(name||"").trim().replace(/\s+/g," ").split(" ")
@@ -995,7 +892,7 @@
     const byClass = {};
     entries.forEach(({date, cls, rec}) => {
       ABSENCE_KEYS.forEach(a => {
-        const namesRaw = (rec[a.key+"Names"]||"").trim();
+        const namesRaw = (rec[nms(a.key)]||"").trim();
         if(!namesRaw) return;
         const names = namesRaw.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
         if(!names.length) return;
@@ -1089,12 +986,9 @@
     document.getElementById("meal-date").addEventListener("change", e => { state.date = e.target.value || todayStr(); renderMeals(); });
     document.getElementById("print-btn").addEventListener("click", () => window.print());
     document.getElementById("send-summary-btn").addEventListener("click", async () => {
-      const records = await loadDateRecords(state.date);
-      const scoped = priv ? records : (records[state.session.className] ? {[state.session.className]: records[state.session.className]} : {});
-      if(!Object.keys(scoped).length){ setStatus("meal-status", "Немає даних за цю дату", true); return; }
       setStatus("meal-status", "Надсилання…", false);
-      const res = await sendTelegram(dailySummaryMessage(state.date, scoped));
-      setStatus("meal-status", res.ok ? "Зведення надіслано в Telegram" : "Помилка: " + res.error, !res.ok);
+      try{ await sendSummary(state.date); setStatus("meal-status", "Зведення надіслано в Telegram", false); }
+      catch(e){ setStatus("meal-status", "Помилка: " + e.message, true); }
     });
     await renderMealSlips();
   }
@@ -1173,9 +1067,8 @@
     holder.innerHTML = `<div class="empty">Завантаження…</div>`;
     const records = {};
     try{
-      const listing = await window.storage.list("att_" + date + "_", true);
-      const keys = (listing && listing.keys) || [];
-      for(const k of keys){ const cls = decodeClassFromKey(k, date); const r = await window.storage.get(k, true); if(r) records[cls] = JSON.parse(r.value); }
+      const rows = await api("GET", "/attendance?date=" + date);
+      rows.forEach(r => { records[r.class_name] = r; });
     }catch(e){}
     let clsList = Object.keys(records).sort();
     if(!priv) clsList = clsList.filter(c => c === state.session.className);
