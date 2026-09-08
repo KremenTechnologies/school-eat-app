@@ -24,6 +24,10 @@ INT_FIELDS = {"registered", "abroad", "individual", "illness_count", "grvi_count
 NULLABLE_INT = {"breakfast", "lunch"}
 
 
+def _clean_name(s: str) -> str:
+    return " ".join((s or "").split())
+
+
 def _pub(u):
     return {"id": u["id"], "phone": u["phone"], "name": u["full_name"],
             "role": u["role"], "className": u["class_name"]}
@@ -140,7 +144,7 @@ def add_user(body: UserIn, actor=Depends(require_priv)):
             raise HTTPException(409, "цей номер телефону вже використовується")
         conn.execute(
             "insert into users (phone, full_name, role, class_name) values (%s, %s, %s, %s)",
-            (canon_phone(body.phone), body.name.strip(), body.role,
+            (canon_phone(body.phone), _clean_name(body.name), body.role,
              body.className if body.role == "teacher" else ""),
         )
     return {"ok": True}
@@ -156,7 +160,7 @@ def patch_user(uid: int, body: UserPatch, actor=Depends(require_priv)):
             raise HTTPException(403, "недостатньо прав")
         sets, vals = [], []
         if body.name is not None:
-            sets.append("full_name = %s"); vals.append(body.name.strip())
+            sets.append("full_name = %s"); vals.append(_clean_name(body.name))
         if body.phone is not None:
             sets.append("phone = %s"); vals.append(canon_phone(body.phone))
         if body.className is not None and target["role"] == "teacher":
