@@ -32,6 +32,13 @@ app.add_middleware(
 app.include_router(router)
 
 
+@app.get("/health")
+def health():
+    with pool.connection() as conn:
+        conn.execute("select 1")
+    return {"status": "ok"}
+
+
 @app.get("/")
 def index():
     return FileResponse(_INDEX)
