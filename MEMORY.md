@@ -16,6 +16,7 @@
 
 - `app/` — FastAPI, `psycopg` синхронний + пул. Файли: `main, db, auth, sms, telegram, routes`.
 - `schema.sql` — `users`, `classes`, `settings` (singleton), `attendance` (pk `date,class_name`), `login_codes`. Виконується на старті (`CREATE TABLE IF NOT EXISTS`). Міграцій нема — правити `schema.sql`.
+- На старті також `seed_classes()` — 29 класів (1-А … 9-В + «Індивідуальне навчання 9-В»), список у `db.SEED_CLASSES`, `ON CONFLICT DO NOTHING`.
 - `templates/attendance-app.html` — SPA без localStorage; єдиний транспорт `api()` → `/api/*`. Поля запису відвідування = колонки БД (snake_case: `illness_count`, `no_reason_names`…).
 - Тест: `test_main.py` (pytest + `TestClient`), проходить проти Postgres у `DATABASE_URL`; без нього — skip. Локально ганяв через `postgres:16-alpine` у colima.
 
