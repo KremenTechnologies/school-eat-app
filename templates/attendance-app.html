@@ -427,8 +427,9 @@
           </nav>
           <div class="field"><label>Номер телефону</label><input type="tel" id="login-phone" placeholder="+380 XX XXX XX XX"></div>
           ${mode==='name' ? `
-            <div class="field" style="margin-top:12px;"><label>Прізвище та ім'я</label><input type="text" id="login-name" placeholder="напр. Іваненко Олена"></div>
-            <button class="btn" id="login-btn" style="margin-top:16px;">Увійти</button>
+            <div class="field" style="margin-top:12px;"><label>Ім'я та прізвище</label><input type="text" id="login-name" placeholder="напр. Олена Іваненко"></div>
+            <p class="hint" style="margin-top:6px;">Регістр і порядок слів не важливі.</p>
+            <button class="btn" id="login-btn" style="margin-top:12px;">Увійти</button>
           ` : `
             <div class="field-row" style="margin-top:12px;">
               <div class="field"><label>Код із SMS</label><input type="text" id="login-code" inputmode="numeric" placeholder="6 цифр"></div>
@@ -446,7 +447,7 @@
     if(mode === "name"){
       document.getElementById("login-btn").addEventListener("click", async () => {
         const phone = phoneVal(), name = document.getElementById("login-name").value;
-        if(!normPhone(phone) || !name.trim()){ setStatus("login-status", "Введіть телефон і прізвище та ім'я", true); return; }
+        if(!normPhone(phone) || !name.trim()){ setStatus("login-status", "Введіть телефон, ім'я та прізвище", true); return; }
         try{ await finishLogin(await api("POST", "/login", {phone, name})); }
         catch(e){ setStatus("login-status", e.message, true); }
       });
@@ -496,7 +497,7 @@
         <p class="hint">Адміністраторів може додавати лише розробник. Адміністратор має доступ до всіх функцій і звітів та може додавати вчителів, окрім керування адміністраторами.</p>
         <div id="admins-list"></div>
         <div class="user-row admin-row" style="margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
-          <input type="text" id="new-a-name" placeholder="Прізвище та ім'я">
+          <input type="text" id="new-a-name" placeholder="Ім'я та прізвище">
           <input type="tel" id="new-a-phone" placeholder="Номер телефону">
           <button class="btn" id="add-admin-btn" style="padding:8px 10px;">+</button>
         </div>
@@ -504,10 +505,10 @@
       </div>` : ""}
       <div class="card">
         <h2>Вчителі та закріплення за класами</h2>
-        <p class="hint">Вчитель входить за номером телефону, пароль — його прізвище та ім'я. Тут ви закріплюєте вчителя за класом; вчителю відображаються дані лише його класу.</p>
+        <p class="hint">Вчитель входить за номером телефону та своїм іменем і прізвищем (регістр і порядок слів не важливі). Тут ви закріплюєте вчителя за класом; вчителю відображаються дані лише його класу.</p>
         <div id="teachers-list"></div>
         <div class="user-row" style="margin-top:14px; border-top:1px solid var(--line); padding-top:14px;">
-          <input type="text" id="new-t-name" placeholder="Прізвище та ім'я">
+          <input type="text" id="new-t-name" placeholder="Ім'я та прізвище">
           <input type="tel" id="new-t-phone" placeholder="Номер телефону">
           <select id="new-t-class"><option value="">Клас —</option>${state.classes.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("")}</select>
           <button class="btn" id="add-teacher-btn" style="padding:8px 10px;">+</button>

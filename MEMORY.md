@@ -23,7 +23,7 @@
 ### Автентифікація
 - Двоє **developer**-акаунтів сідяться при старті з env `DEV{1,2}_PHONE/NAME` (`ON CONFLICT DO NOTHING`). Реальні значення — [seed-developers](seed-developers.md), не в git.
 - Користувачів/адмінів створює **лише developer** (admin не може створити admin). Bootstrap-екрана нема.
-- Логін: телефон + «Прізвище Ім'я». Телефон → останні 9 цифр (`canon_phone`), тому `+380 67…`, `380…`, `067…` збігаються. Ім'я → нижній регістр без пробілів (Tinkercad-style; **порядок слів важливий**).
+- Логін: телефон + ім'я та прізвище. Телефон → останні 9 цифр (`canon_phone`), тому `+380 67…`, `380…`, `067…` збігаються. Ім'я — `norm_name` = `" ".join(sorted(lower().split()))`: регістр і **порядок слів** не важливі, слова розділяються пробілом (між частинами має бути пробіл).
 - SMS-вхід: `login_codes`, `/api/login/sms/{request,verify}`, 6 цифр, TTL 5 хв, ≤5 спроб, **1 код на номер раз на 5 хв** (повторний запит → 429). Відправка — `app/kyivstar.py` (порт із open-city-atlantis: OAuth2 client_credentials, `POST {base}/sms`, токен кешується в пам'яті). Порожні креди → стаб (лог + друк при `SMS_DEBUG`). Env: `KYIVSTAR_SMS_ENABLED / CLIENT_ID / CLIENT_SECRET / SENDER`.
 - Сесія — підписана cookie (`SessionMiddleware`, `SESSION_SECRET`).
 - Telegram шле сервер (`httpx`), токен у Бові `settings`, не в браузері.

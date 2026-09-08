@@ -91,7 +91,7 @@ def test_teacher_is_scoped_to_own_class(client):
     client.post("/api/logout")
 
     t = TestClient(app)
-    assert t.post("/api/login", json={"phone": "0671111111", "name": "вчителькаодна"}).status_code == 200
+    assert t.post("/api/login", json={"phone": "0671111111", "name": "одна вчителька"}).status_code == 200
     assert [r["class_name"] for r in t.get("/api/attendance?date=2026-09-08").json()] == ["5-А"]
     assert t.put("/api/attendance/2026-09-08/7-Б", json={"registered": 1}).status_code == 403
 
@@ -102,6 +102,6 @@ def test_admin_cannot_be_created_by_admin(client):
     client.post("/api/logout")
 
     a = TestClient(app)
-    a.post("/api/login", json={"phone": "0672222222", "name": "адмінодин"})
+    a.post("/api/login", json={"phone": "0672222222", "name": "ОДИН адмін"})
     r = a.post("/api/users", json={"name": "Адмін Два", "phone": "0673333333", "role": "admin"})
     assert r.status_code == 403

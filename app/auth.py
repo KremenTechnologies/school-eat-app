@@ -6,7 +6,8 @@ from .db import pool, canon_phone
 
 
 def norm_name(s: str) -> str:
-    return re.sub(r"\s+", "", (s or "")).lower()
+    """Case-, spacing- and word-order-insensitive (Tinkercad-style)."""
+    return " ".join(sorted((s or "").lower().split()))
 
 
 def _user_by_phone(phone: str):
@@ -17,7 +18,7 @@ def _user_by_phone(phone: str):
 
 
 def authenticate(phone: str, name: str):
-    """Phone + 'Прізвище Ім'я' (Tinkercad-style: case-insensitive, whitespace ignored)."""
+    """Phone + full name (case / spacing / word-order insensitive)."""
     u = _user_by_phone(phone)
     if u and norm_name(name) == norm_name(u["full_name"]):
         return u
