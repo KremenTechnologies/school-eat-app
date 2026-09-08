@@ -25,7 +25,7 @@ FastAPI + Postgres. One `<script>` SPA (vanilla JS, no build) served at `/`, tal
 - `auth.py` — `SessionMiddleware` cookie. `norm_name()` = lowercase, no whitespace. `authenticate(phone, name)`. Deps: `current_user`, `require_priv` (developer|admin), `require_dev`.
 - `sms.py` — `login_codes` table, 6-digit code, 5 min TTL, ≤5 attempts, **one code per phone per 5 min** (new request while the old is unexpired → 429).
 - `kyivstar.py` — Kyivstar programmable SMS, ported from open-city-atlantis: OAuth2 client-credentials (token cached in-process), `POST {base}/sms` with `{from, to, text, maxSegments:1, messageTtlSec:600}`, phone as `380…` (no `+`). Blank/disabled creds → stub: logs, prints if `SMS_DEBUG`, returns ok. Env: `KYIVSTAR_SMS_ENABLED`, `KYIVSTAR_CLIENT_ID`, `KYIVSTAR_CLIENT_SECRET`, `KYIVSTAR_SENDER`.
-- `telegram.py` — server-side Bot API send; builds attendance + meal-summary messages.
+- `telegram.py` — server-side Bot API send (HTML). `attendance_message` (fired on every `PUT /api/attendance/...`), `summary_message` (meal table, `POST /api/attendance/summary`), `test_message`. Kyiv time in footers (needs `tzdata`). Pure-function tests in `test_telegram.py`.
 - `routes.py` — all `/api` endpoints; roles enforced per route; teachers scoped to their own class.
 - `main.py` — app wiring, lifespan, `GET /` → `templates/attendance-app.html`.
 

@@ -210,7 +210,7 @@ def put_settings(body: SettingsIn, _=Depends(require_priv)):
 
 @router.post("/telegram/test")
 def telegram_test(_=Depends(require_priv)):
-    res = telegram.send_message("Тестове повідомлення від сайту обліку відвідування.")
+    res = telegram.send_message(telegram.test_message())
     if not res["ok"]:
         raise HTTPException(502, res["error"])
     return {"ok": True}

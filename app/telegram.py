@@ -1,15 +1,28 @@
+from __future__ import annotations
+
+import re
+from datetime import date as date_cls
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import httpx
 
 from .db import pool
 
+KYIV = ZoneInfo("Europe/Kyiv")
+
 ABSENCE = [
-    ("illness", "По хворобі"),
-    ("grvi", "По ГРВІ"),
-    ("family", "По сімейних причинах"),
-    ("no_reason", "Без поважної причини"),
+    ("illness", "🤒", "Хвороба"),
+    ("grvi", "🤧", "ГРВІ"),
+    ("family", "👨‍👩‍👧", "Сімейні причини"),
+    ("no_reason", "❗", "Без поважної причини"),
 ]
 BREAKFAST_ONLY = {1, 2, 3, 4, 5, 6, 9}
 LUNCH_ONLY = {7, 8}
+
+_MONTHS = ["", "січня", "лютого", "березня", "квітня", "травня", "червня",
+          "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
+_WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
 
 
 def _settings():
@@ -24,7 +37,12 @@ def send_message(text: str) -> dict:
     try:
         r = httpx.post(
             f"https://api.telegram.org/bot{s['bot_token']}/sendMessage",
-            json={"chat_id": s["chat_id"], "text": text, "parse_mode": "HTML"},
+            json={
+                "chat_id": s["chat_id"],
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            },
             timeout=10,
         )
         data = r.json()
@@ -35,17 +53,35 @@ def send_message(text: str) -> dict:
     return {"ok": True}
 
 
-def _grade(cls: str):
-    import re
+def _fmt_date(iso: str) -> str:
+    d = date_cls.fromisoformat(iso)
+    return f"{d.day} {_MONTHS[d.month]} {d.year} р. ({_WEEKDAYS[d.weekday()]})"
 
+
+def _now_kyiv() -> str:
+    return datetime.now(KYIV).strftime("%H:%M")
+
+
+def _grade(cls: str):
     m = re.search(r"(\d{1,2})", cls or "")
     return int(m.group(1)) if m else None
 
 
 def _present(rec: dict) -> int:
-    absent = sum(int(rec.get(f"{k}_count") or 0) for k, _ in ABSENCE)
-    p = int(rec.get("registered") or 0) - int(rec.get("abroad") or 0) - int(rec.get("individual") or 0) - absent
+    absent = sum(int(rec.get(f"{k}_count") or 0) for k, *_ in ABSENCE)
+    p = (int(rec.get("registered") or 0) - int(rec.get("abroad") or 0)
+         - int(rec.get("individual") or 0) - absent)
     return max(p, 0)
+
+
+def _meals(rec: dict) -> tuple[int, int]:
+    present = _present(rec)
+    g = _grade(rec["class_name"])
+    b_def = 0 if g in LUNCH_ONLY else present
+    l_def = 0 if g in BREAKFAST_ONLY else present
+    b = b_def if rec.get("breakfast") is None else int(rec["breakfast"])
+    lu = l_def if rec.get("lunch") is None else int(rec["lunch"])
+    return b, lu
 
 
 def _esc(s) -> str:
@@ -54,38 +90,74 @@ def _esc(s) -> str:
 
 
 def attendance_message(date: str, cls: str, rec: dict, by: str) -> str:
+    reg = int(rec.get("registered") or 0)
     present = _present(rec)
-    absent = sum(int(rec.get(f"{k}_count") or 0) for k, _ in ABSENCE)
-    d, m, y = date.split("-")[::-1]
-    lines = [
-        "<b>Відвідування оновлено</b>",
-        f"Дата: {d}.{m}.{y}",
-        f"Клас: <b>{_esc(cls)}</b>",
-        f"За реєстром: {int(rec.get('registered') or 0)}, присутні: <b>{present}</b>, відсутні: {absent}",
+    absent = sum(int(rec.get(f"{k}_count") or 0) for k, *_ in ABSENCE)
+    abroad = int(rec.get("abroad") or 0)
+    individual = int(rec.get("individual") or 0)
+
+    out = [
+        f"📋 <b>Відвідування — {_esc(cls)}</b>",
+        f"🗓 {_fmt_date(date)}",
+        "",
+        f"✅ Присутні: <b>{present}</b> з {reg}",
     ]
-    for key, label in ABSENCE:
+    if absent:
+        out.append(f"🚫 Відсутні: <b>{absent}</b>")
+    extras = []
+    if abroad:
+        extras.append(f"за кордоном {abroad}")
+    if individual:
+        extras.append(f"індив. навчання {individual}")
+    if extras:
+        out.append("• " + " · ".join(extras))
+
+    reasons = []
+    for key, icon, label in ABSENCE:
         c = int(rec.get(f"{key}_count") or 0)
-        if c > 0:
-            names = rec.get(f"{key}_names") or ""
-            lines.append(f"— {label}: {c}" + (f" ({_esc(names)})" if names else ""))
-    if by:
-        lines.append(f"Внесено: {_esc(by)}")
-    return "\n".join(lines)
+        if not c:
+            continue
+        names = (rec.get(f"{key}_names") or "").strip()
+        line = f"{icon} {label} — <b>{c}</b>"
+        if names:
+            line += f"\n   <i>{_esc(names)}</i>"
+        reasons.append(line)
+    if reasons:
+        out += ["", *reasons]
+
+    out += ["", f"✏️ {_esc(by)} · {_now_kyiv()}"] if by else ["", f"✏️ {_now_kyiv()}"]
+    return "\n".join(out)
 
 
 def summary_message(date: str, records: list[dict]) -> str:
-    d, m, y = date.split("-")[::-1]
-    lines = [f"<b>Зведення харчування — {d}.{m}.{y}</b>", ""]
-    tot_b = tot_l = 0
-    for rec in sorted(records, key=lambda r: r["class_name"]):
+    rows = sorted(records, key=lambda r: r["class_name"])
+    tot_p = tot_b = tot_l = 0
+    table = [f"{'Клас':<8}{'Присут.':>8}{'Снід.':>7}{'Обід':>7}"]
+    for rec in rows:
         present = _present(rec)
-        g = _grade(rec["class_name"])
-        db = 0 if g in LUNCH_ONLY else present
-        dl = 0 if g in BREAKFAST_ONLY else present
-        b = db if rec.get("breakfast") is None else int(rec["breakfast"])
-        lu = dl if rec.get("lunch") is None else int(rec["lunch"])
+        b, lu = _meals(rec)
+        tot_p += present
         tot_b += b
         tot_l += lu
-        lines.append(f"{_esc(rec['class_name'])}: присутні {present}, сніданок {b}, обід {lu}")
-    lines += ["", f"Разом: сніданків {tot_b}, обідів {tot_l}"]
-    return "\n".join(lines)
+        table.append(
+            f"{rec['class_name']:<8}{present:>8}{(b or '–'):>7}{(lu or '–'):>7}"
+        )
+    table.append("─" * 30)
+    table.append(f"{'Разом':<8}{tot_p:>8}{tot_b:>7}{tot_l:>7}")
+
+    return (
+        f"🍽 <b>Заявки на харчування</b>\n"
+        f"🗓 {_fmt_date(date)}\n"
+        f"Класів з даними: {len(rows)}\n\n"
+        f"<pre>{_esc(chr(10).join(table))}</pre>\n"
+        f"Разом порцій: сніданків <b>{tot_b}</b>, обідів <b>{tot_l}</b>\n"
+        f"<i>Надіслано {_now_kyiv()}</i>"
+    )
+
+
+def test_message() -> str:
+    return (
+        "✅ <b>Telegram підключено</b>\n"
+        "Сюди надходитимуть сповіщення про відвідування та заявки на харчування.\n"
+        f"<i>Перевірка {_now_kyiv()}</i>"
+    )
