@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from .db import pool, init_schema, seed_developers
+from .db import pool, init_schema, seed_classes, seed_developers
 from .routes import router
 
 _INDEX = Path(__file__).parent.parent / "templates" / "attendance-app.html"
@@ -17,6 +17,7 @@ async def lifespan(_: FastAPI):
     pool.open()
     init_schema()
     seed_developers()
+    seed_classes()
     yield
     # pool lives for the process lifetime; render kills the process on shutdown
 

@@ -28,6 +28,26 @@ def init_schema() -> None:
         conn.execute(_SCHEMA)
 
 
+SEED_CLASSES = [
+    "1-А", "1-Б", "1-В",
+    "2-А", "2-Б", "2-В",
+    "3-А", "3-Б", "3-В", "3-Г",
+    "4-А", "4-Б", "4-В",
+    "5-А", "5-Б", "5-В",
+    "6-А", "6-Б", "6-В",
+    "7-А", "7-Б", "7-В",
+    "8-А", "8-Б", "8-В",
+    "9-А", "9-Б", "9-В",
+    "Індивідуальне навчання 9-В",
+]
+
+
+def seed_classes() -> None:
+    with pool.connection() as conn:
+        for name in SEED_CLASSES:
+            conn.execute("insert into classes (name) values (%s) on conflict do nothing", (name,))
+
+
 def seed_developers() -> None:
     devs = [
         (os.environ.get("DEV1_PHONE"), os.environ.get("DEV1_NAME")),
