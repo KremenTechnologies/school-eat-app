@@ -58,8 +58,10 @@ def test_sms_login(client):
 
 def test_classes_and_attendance_flow(client):
     login_dev(client)
-    client.post("/api/classes", json=[{"name": "5-А"}, {"name": "7-Б"}])
-    assert client.get("/api/classes").json() == ["5-А", "7-Б"]
+    seeded = client.get("/api/classes").json()
+    assert "5-А" in seeded and "9-В" in seeded  # seed_classes ran on startup
+    client.post("/api/classes", json=[{"name": "11-Я"}])
+    assert "11-Я" in client.get("/api/classes").json()
 
     rec = {"registered": 25, "abroad": 1, "individual": 0,
            "illness_count": 2, "illness_names": "Іваненко Іван, Петренко Петро"}
