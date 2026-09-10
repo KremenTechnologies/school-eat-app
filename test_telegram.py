@@ -41,3 +41,10 @@ def test_summary_message_meal_rules():
 def test_html_is_escaped():
     rec = {**BASE, "illness_count": 1, "illness_names": "<script>&"}
     assert "&lt;script&gt;&amp;" in t.attendance_message("2026-09-08", "5-А", rec, "x")
+
+
+def test_grvi_not_subtracted_and_refusal_reduces_meals():
+    from app.telegram import _present, _meals
+    rec = {"class_name": "5-А", "registered": 20, "illness_count": 3, "grvi_count": 2, "meal_refusal": 4}
+    assert _present(rec) == 17          # 20 - 3; ГРВІ is inside «по хворобі»
+    assert _meals(rec) == (13, 0)       # 17 - 4 refused; grade 5 = breakfast only

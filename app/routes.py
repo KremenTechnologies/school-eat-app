@@ -94,6 +94,23 @@ def list_classes(request: Request):
     return [r["name"] for r in rows]
 
 
+@router.get("/classes/refusals")
+def class_refusals(request: Request):
+    current_user(request)
+    with pool.connection() as conn:
+        rows = conn.execute("select name, meal_refusal from classes").fetchall()
+    return {r["name"]: r["meal_refusal"] for r in rows}
+
+
+@router.put("/classes/{name}/refusal")
+def set_class_refusal(name: str, body: dict, request: Request):
+    _scope_class(current_user(request), name)
+    n = max(0, int(body.get("meal_refusal") or 0))
+    with pool.connection() as conn:
+        conn.execute("update classes set meal_refusal = %s where name = %s", (n, name))
+    return {"meal_refusal": n}
+
+
 @router.post("/classes")
 def add_classes(body: list[ClassIn], request: Request, _=Depends(require_priv)):
     names = [c.name.strip() for c in body if c.name.strip()]
@@ -252,6 +269,17 @@ def att_list(request: Request, date: str | None = None, month: str | None = None
     return [_row_out(r) for r in rows]
 
 
+@router.get("/attendance/last/{cls}")
+def att_last(cls: str, request: Request):
+    """Most recent record for a class — the form prefills 'registered'/'abroad' from it."""
+    _scope_class(current_user(request), cls)
+    with pool.connection() as conn:
+        r = conn.execute(
+            "select * from attendance where class_name = %s order by date desc limit 1", (cls,)
+        ).fetchone()
+    return _row_out(r) if r else None
+
+
 @router.get("/attendance/{date}/{cls}")
 def att_get(date: str, cls: str, request: Request):
     user = current_user(request)
@@ -313,6 +341,9 @@ def att_summary(request: Request, date: str):
         rows = [r for r in rows if r["class_name"] == user["class_name"]]
     if not rows:
         raise HTTPException(404, "немає даних за цю дату")
+    refusals = class_refusals(request)
+    for r in rows:
+        r["meal_refusal"] = refusals.get(r["class_name"], 0)
     res = telegram.send_message(telegram.summary_message(date, rows))
     if not res["ok"]:
         raise HTTPException(502, res["error"])

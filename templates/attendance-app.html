@@ -97,6 +97,15 @@
   table.data tr:nth-child(even) td{background:#FCFBF8;}
   table.data td.num{text-align:center;}
   table.data tr.totals-row td{font-weight:700; background:var(--teal-soft) !important;}
+  @media (max-width:760px){
+    /* ponytail: horizontal scroll + sticky first column instead of card-per-row layout */
+    table.data{display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; font-size:12.5px;}
+    table.data th, table.data td{white-space:nowrap; padding:6px 7px;}
+    table.data th:first-child, table.data td:first-child{position:sticky; left:0; background:var(--paper); z-index:1;}
+    table.data th:first-child{background:var(--teal-soft);}
+    table.data tr:nth-child(even) td:first-child{background:#FCFBF8;}
+    table.data tr.totals-row td:first-child{background:var(--teal-soft) !important;}
+  }
   .notice{
     font-size:12.5px; color:var(--ink-soft); background:var(--line-soft); border-radius:4px;
     padding:8px 12px; margin-bottom:18px; border:1px solid var(--line);
@@ -154,11 +163,21 @@
     body{background:#fff;}
     header.top, nav.tabs, .user-bar, .no-print, .card > .hint, .slip-toolbar .btn, .field, .not-print-area{display:none !important;}
     .app-shell{max-width:none; padding:0;}
-    #view > *:not(#print-area){display:none !important;}
+    #view > *:not(:has(#print-area)){display:none !important;}
     #print-area{display:block !important;}
-    .slip{break-inside:avoid; border:1.3px solid #000;}
-    .slip .row input{border:none; font-weight:600;}
-    .print-title{display:block !important; text-align:center; font-family:'IBM Plex Serif',serif; font-size:16px; margin-bottom:10px;}
+    @page{margin:6mm;}
+    .card{border:none; padding:0; margin:0; box-shadow:none;}
+    .slip-grid{grid-template-columns:repeat(3,1fr) !important; gap:4px;}
+    #print-area.print-breakfast .slip:not([data-kind~=breakfast]), #print-area.print-lunch .slip:not([data-kind~=lunch]){display:none;}
+    .slip{break-inside:avoid; border:1.3px solid #000; border-radius:0; padding:4px 6px;}
+    .slip h3{font-size:11px; padding-bottom:2px; margin-bottom:3px;}
+    .slip .row{font-size:11px; margin-bottom:1px;}
+    .slip .row input{border:none; font-weight:600; padding:0; font-size:11px; height:14px; line-height:14px;}
+    .slip .row input[type=number]{width:40px;}
+    .slip .row input[type=text]{width:95px;}
+    .slip .rule-note{display:none;}
+    .print-title{font-size:12px; margin-bottom:4px;}
+    .print-title{display:block !important; text-align:center; font-family:'IBM Plex Serif',serif;}
   }
   .print-title{display:none;}
 </style>
@@ -204,6 +223,8 @@
     {key:"no_reason", label:"Без поважної причини"}
   ];
   const cnt = k => k + "_count";
+  // ГРВІ is a subgroup of «По хворобі» — reported, never subtracted
+  const absentSum = rec => ABSENCE_KEYS.reduce((s,a) => a.key === "grvi" ? s : s + num(rec[cnt(a.key)]), 0);
   const nms = k => k + "_names";
 
   const state = {
@@ -239,7 +260,8 @@
   function num(v){ const n = parseInt(v,10); return isNaN(n) ? 0 : n; }
   function cssSafe(s){ return s.replace(/[^a-zA-Z0-9\u0430-\u044f\u0410-\u042f\u0456\u0406\u0457\u0407\u0454\u0404]/g, "_"); }
   function parseGrade(cls){ const m = String(cls||"").match(/(\d{1,2})/); return m ? parseInt(m[1],10) : null; }
-  function mealDefaults(cls, present){
+  function mealDefaults(cls, present, refusal){
+    present = Math.max(0, present - num(refusal));
     const grade = parseGrade(cls);
     if(grade !== null && BREAKFAST_ONLY_GRADES.includes(grade)) return {breakfast:present, lunch:0};
     if(grade !== null && LUNCH_ONLY_GRADES.includes(grade)) return {breakfast:0, lunch:present};
@@ -339,7 +361,7 @@
     return Object.keys(set).sort().reverse().map(d => ({date:d, count:1}));
   }
   function computePresent(rec){
-    const absentTotal = ABSENCE_KEYS.reduce((s,a) => s + num(rec[cnt(a.key)]), 0);
+    const absentTotal = absentSum(rec);
     const present = num(rec.registered) - num(rec.abroad) - num(rec.individual) - absentTotal;
     return present < 0 ? 0 : present;
   }
@@ -700,12 +722,19 @@
     const holder = document.getElementById("att-form-holder");
     holder.innerHTML = `<div class="empty">Завантаження…</div>`;
     const records = await loadDateRecords(state.date);
-    const rec = records[state.selectedClass] || defaultRecord();
+    let rec = records[state.selectedClass];
+    if(!rec){
+      rec = defaultRecord();
+      try{ const last = await api("GET", `/attendance/last/${encodeURIComponent(state.selectedClass)}`); if(last){ rec.registered = last.registered; rec.abroad = last.abroad; } }catch(e){}
+    }
+    let refusal = 0;
+    try{ refusal = (await api("GET", "/classes/refusals"))[state.selectedClass] || 0; }catch(e){}
     holder.innerHTML = `
       <div class="field-row">
         <div class="field narrow"><label>За реєстром</label><input type="number" min="0" id="f-registered" value="${rec.registered ?? ""}"></div>
         <div class="field narrow"><label>За кордоном</label><input type="number" min="0" id="f-abroad" value="${rec.abroad ?? ""}"></div>
         <div class="field narrow"><label>Індивідуальне навчання</label><input type="number" min="0" id="f-individual" value="${rec.individual ?? ""}"></div>
+        <div class="field narrow"><label>Відмова від харчування</label><input type="number" min="0" id="f-refusal" value="${refusal}"></div>
         <div class="field narrow"><label>Присутні (фактично)</label><div class="computed" id="f-present-computed">${computePresent(rec)}<small>рахується автоматично</small></div></div>
       </div>
       <div class="absence-grid">
@@ -726,7 +755,10 @@
       const newRec = readFormRecord(rec);
       setStatus("att-status", "Збереження…", false);
       let res;
-      try{ res = await setAttendance(state.date, state.selectedClass, newRec); }
+      try{
+        await api("PUT", `/classes/${encodeURIComponent(state.selectedClass)}/refusal`, {meal_refusal: valNum("f-refusal")});
+        res = await setAttendance(state.date, state.selectedClass, newRec);
+      }
       catch(e){ setStatus("att-status", "Не вдалося зберегти: " + e.message, true); return; }
       invalidateDateCache(state.date);
       const tg = res.telegram || {};
@@ -785,7 +817,7 @@
         <tbody>
         ${clsList.map(c => {
           const r = records[c];
-          const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(r[cnt(a.key)]),0);
+          const absentTotal = absentSum(r);
           return `<tr><td>${escapeHtml(c)}</td><td class="num">${num(r.registered)}</td><td class="num">${num(r.abroad)}</td><td class="num">${num(r.individual)}</td>
             <td class="num"><strong>${computePresent(r)}</strong></td><td class="num">${absentTotal}</td>
             ${ABSENCE_KEYS.map(a=>`<td class="num">${num(r[cnt(a.key)])||"—"}</td>`).join("")}</tr>`;
@@ -797,7 +829,7 @@
   // ----- Report tab (attendance report, with absentee names) -----
   function absenteeBlockHtml(cls, rec){
     const present = computePresent(rec);
-    const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[cnt(a.key)]),0);
+    const absentTotal = absentSum(rec);
     let inner = `<h4>${escapeHtml(cls)} — присутні ${present}, відсутні ${absentTotal}</h4>`;
     let any = false;
     ABSENCE_KEYS.forEach(a => {
@@ -853,7 +885,7 @@
         return;
       }
       const present = computePresent(rec);
-      const absentTotal = ABSENCE_KEYS.reduce((s,a)=>s+num(rec[cnt(a.key)]),0);
+      const absentTotal = absentSum(rec);
       totals.registered += num(rec.registered);
       totals.present += present;
       totals.absent += absentTotal;
@@ -978,6 +1010,7 @@
           <div>
             <button class="btn secondary" id="send-summary-btn">Надіслати зведення в Telegram</button>
             <button class="btn" id="print-btn" style="margin-left:8px;">Друкувати заявки</button>
+            <dialog id="print-dialog" class="no-print"><p style="margin:0 0 10px;">Що друкувати?</p><button class="btn" data-kind="">Усі</button> <button class="btn secondary" data-kind="breakfast">Сніданки</button> <button class="btn secondary" data-kind="lunch">Обіди</button></dialog>
           </div>
         </div>
         <div class="status-msg no-print" id="meal-status"></div>
@@ -985,7 +1018,15 @@
         <div id="print-area"><div class="empty">Завантаження…</div></div>
       </div>`;
     document.getElementById("meal-date").addEventListener("change", e => { state.date = e.target.value || todayStr(); renderMeals(); });
-    document.getElementById("print-btn").addEventListener("click", () => window.print());
+    const printDialog = document.getElementById("print-dialog");
+    document.getElementById("print-btn").addEventListener("click", () => printDialog.showModal());
+    printDialog.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      printDialog.close();
+      const kind = b.dataset.kind, area = document.getElementById("print-area");
+      area.className = kind ? "print-" + kind : "";
+      document.getElementById("print-title").textContent = `Заявки на харчування${kind === "breakfast" ? " (сніданки)" : kind === "lunch" ? " (обіди)" : ""} — ${fmtDate(state.date)}`;
+      window.print();
+    }));
     document.getElementById("send-summary-btn").addEventListener("click", async () => {
       setStatus("meal-status", "Надсилання…", false);
       try{ await sendSummary(state.date); setStatus("meal-status", "Зведення надіслано в Telegram", false); }
@@ -996,6 +1037,7 @@
   async function renderMealSlips(){
     const priv = isPriv();
     const records = await loadDateRecords(state.date);
+    try{ state.refusals = await api("GET", "/classes/refusals"); }catch(e){ state.refusals = {}; }
     let clsList = Object.keys(records).sort();
     if(!priv) clsList = clsList.filter(c => c === state.session.className);
     document.getElementById("print-title").textContent = `Заявки на харчування — ${fmtDate(state.date)}`;
@@ -1005,6 +1047,13 @@
     area.innerHTML = `<div class="slip-grid">${clsList.map(c => slipHtml(c, records[c])).join("")}</div>`;
     clsList.forEach(c => {
       const safeId = cssSafe(c);
+      document.getElementById("rf-"+safeId).addEventListener("change", async e => {
+        await api("PUT", `/classes/${encodeURIComponent(c)}/refusal`, {meal_refusal: e.target.value});
+        records[c].breakfast = null; records[c].lunch = null; // recompute defaults from the new refusal
+        await setAttendance(state.date, c, records[c]);
+        invalidateDateCache(state.date);
+        renderMealSlips();
+      });
       const brInput = document.getElementById("br-"+safeId), luInput = document.getElementById("lu-"+safeId), sigInput = document.getElementById("sig-"+safeId);
       [brInput, luInput, sigInput].forEach(inp => {
         inp.addEventListener("change", async () => {
@@ -1018,16 +1067,18 @@
   }
   function slipHtml(cls, rec){
     const present = computePresent(rec);
-    const defaults = mealDefaults(cls, present);
+    const refusal = (state.refusals || {})[cls] || 0;
+    const defaults = mealDefaults(cls, present, refusal);
     const breakfast = (rec.breakfast === null || rec.breakfast === undefined || rec.breakfast === "") ? defaults.breakfast : rec.breakfast;
     const lunch = (rec.lunch === null || rec.lunch === undefined || rec.lunch === "") ? defaults.lunch : rec.lunch;
     const safeId = cssSafe(cls);
     const note = mealRuleNote(cls);
     return `
-      <div class="slip">
+      <div class="slip" data-kind="${num(breakfast) > 0 ? "breakfast" : ""} ${num(lunch) > 0 ? "lunch" : ""}">
         <h3>Заявка на харчування</h3>
         <div class="row"><label>Дата</label><strong>${fmtDate(state.date)}</strong></div>
         <div class="row"><label>Клас</label><strong>${escapeHtml(cls)}</strong></div>
+        <div class="row no-print"><label>Відмова від харчування</label><input type="number" min="0" id="rf-${safeId}" value="${refusal}"> учнів</div>
         <div class="row"><label>Сніданок</label><input type="number" min="0" id="br-${safeId}" value="${breakfast}"> порцій</div>
         <div class="row"><label>Обід</label><input type="number" min="0" id="lu-${safeId}" value="${lunch}"> порцій</div>
         <div class="row"><label>Підпис</label><input type="text" id="sig-${safeId}" value="${escapeHtml(rec.signature || "")}" placeholder="ПІБ"></div>

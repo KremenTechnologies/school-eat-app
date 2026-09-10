@@ -68,14 +68,15 @@ def _grade(cls: str):
 
 
 def _present(rec: dict) -> int:
-    absent = sum(int(rec.get(f"{k}_count") or 0) for k, *_ in ABSENCE)
+    # ГРВІ is a subgroup of illness — reported, never subtracted
+    absent = sum(int(rec.get(f"{k}_count") or 0) for k, *_ in ABSENCE if k != "grvi")
     p = (int(rec.get("registered") or 0) - int(rec.get("abroad") or 0)
          - int(rec.get("individual") or 0) - absent)
     return max(p, 0)
 
 
 def _meals(rec: dict) -> tuple[int, int]:
-    present = _present(rec)
+    present = max(0, _present(rec) - int(rec.get("meal_refusal") or 0))
     g = _grade(rec["class_name"])
     b_def = 0 if g in LUNCH_ONLY else present
     l_def = 0 if g in BREAKFAST_ONLY else present
@@ -92,7 +93,7 @@ def _esc(s) -> str:
 def attendance_message(date: str, cls: str, rec: dict, by: str) -> str:
     reg = int(rec.get("registered") or 0)
     present = _present(rec)
-    absent = sum(int(rec.get(f"{k}_count") or 0) for k, *_ in ABSENCE)
+    absent = sum(int(rec.get(f"{k}_count") or 0) for k, *_ in ABSENCE if k != "grvi")
     abroad = int(rec.get("abroad") or 0)
     individual = int(rec.get("individual") or 0)
 

@@ -46,3 +46,6 @@ create table if not exists login_codes (
   expires_at timestamptz not null,
   attempts   int not null default 0
 );
+
+-- per-class "refused meals" count, edited on the meals tab
+alter table classes add column if not exists meal_refusal int not null default 0;

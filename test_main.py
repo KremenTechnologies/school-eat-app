@@ -105,3 +105,16 @@ def test_admin_cannot_be_created_by_admin(client):
     a.post("/api/login", json={"phone": "0672222222", "name": "ОДИН адмін"})
     r = a.post("/api/users", json={"name": "Адмін Два", "phone": "0673333333", "role": "admin"})
     assert r.status_code == 403
+
+
+def test_refusal_and_last_record(client):
+    login_dev(client)
+    assert client.get("/api/attendance/last/5-А").json() is None
+    client.put("/api/attendance/2026-09-01/5-А", json={"registered": 20, "abroad": 2})
+    client.put("/api/attendance/2026-09-08/5-А", json={"registered": 25, "abroad": 1})
+    last = client.get("/api/attendance/last/5-А").json()
+    assert (last["registered"], last["abroad"]) == (25, 1)
+
+    assert client.get("/api/classes/refusals").json()["5-А"] == 0
+    assert client.put("/api/classes/5-А/refusal", json={"meal_refusal": 3}).json() == {"meal_refusal": 3}
+    assert client.get("/api/classes/refusals").json()["5-А"] == 3
