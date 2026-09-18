@@ -161,7 +161,7 @@
   .user-row input, .user-row select{font-family:inherit; font-size:13.5px; padding:7px 8px; border:1px solid var(--line); border-radius:4px; background:var(--paper);}
   @media print{
     body{background:#fff;}
-    header.top, nav.tabs, .user-bar, .no-print, .card > .hint, .slip-toolbar .btn, .field, .not-print-area{display:none !important;}
+    header.top, nav.tabs, .user-bar, .no-print, .card > .hint, .card > h2, .slip-toolbar .btn, .field, .not-print-area{display:none !important;}
     .app-shell{max-width:none; padding:0;}
     #view > *:not(:has(#print-area)){display:none !important;}
     #print-area{display:block !important;}
@@ -177,6 +177,10 @@
     .slip .row input[type=text]{width:95px;}
     .slip .rule-note{display:none;}
     .print-title{font-size:12px; margin-bottom:4px;}
+    table.data{font-size:11px; display:table; overflow:visible;}
+    table.data th, table.data td{padding:3px 5px; border-color:#000;}
+    table.data tr, .report-block, .notice{break-inside:avoid;}
+    .report-block{border-color:#000; padding:6px 8px; margin-bottom:6px;}
     .print-title{display:block !important; text-align:center; font-family:'IBM Plex Serif',serif;}
   }
   .print-title{display:none;}
@@ -826,6 +830,10 @@
       </table>`;
   }
 
+  function printWithTitle(title){
+    document.getElementById("print-title").textContent = title;
+    window.print();
+  }
   // ----- Report tab (attendance report, with absentee names) -----
   function absenteeBlockHtml(cls, rec){
     const present = computePresent(rec);
@@ -853,10 +861,12 @@
       <div class="card">
         <h2>Звіт про відвідування</h2>
         <p class="hint">${priv ? "Зведений звіт по всій школі за обрану дату, з прізвищами відсутніх учнів." : "Звіт по вашому класу за обрану дату, з прізвищами відсутніх учнів."}</p>
-        <div class="field-row"><div class="field narrow"><label for="rep-date">Дата</label><input type="date" id="rep-date" value="${state.date}"></div></div>
-        <div id="report-holder"><div class="empty">Завантаження…</div></div>
+        <div class="field-row" style="align-items:flex-end;"><div class="field narrow"><label for="rep-date">Дата</label><input type="date" id="rep-date" value="${state.date}"></div><button class="btn no-print" id="print-btn">Друкувати</button></div>
+        <div class="print-title" id="print-title"></div>
+        <div id="print-area"><div id="report-holder"><div class="empty">Завантаження…</div></div></div>
       </div>`;
     document.getElementById("rep-date").addEventListener("change", e => { state.date = e.target.value || todayStr(); renderReportBody(); });
+    document.getElementById("print-btn").addEventListener("click", () => printWithTitle(`Звіт про відвідування — ${fmtDate(state.date)}`));
     await renderReportBody();
   }
   async function renderReportBody(){
@@ -971,10 +981,12 @@
       <div class="card">
         <h2>Звіт за місяць</h2>
         <p class="hint">${priv ? "Таблиця відвідування по всіх класах за обраний місяць: рядок — учень, стовпець — дата, у клітинці — причина відсутності." : "Таблиця відвідування вашого класу за обраний місяць: рядок — учень, стовпець — дата, у клітинці — причина відсутності."} Прізвища, написані з великої чи малої літери, вважаються однією і тією ж дитиною.</p>
-        <div class="field-row"><div class="field narrow"><label for="rep-month">Місяць</label><input type="month" id="rep-month" value="${state.reportMonth}"></div></div>
-        <div id="monthly-holder"><div class="empty">Завантаження…</div></div>
+        <div class="field-row" style="align-items:flex-end;"><div class="field narrow"><label for="rep-month">Місяць</label><input type="month" id="rep-month" value="${state.reportMonth}"></div><button class="btn no-print" id="print-btn">Друкувати</button></div>
+        <div class="print-title" id="print-title"></div>
+        <div id="print-area"><div id="monthly-holder"><div class="empty">Завантаження…</div></div></div>
       </div>`;
     document.getElementById("rep-month").addEventListener("change", e => { state.reportMonth = e.target.value || monthPrefixDefault(); renderMonthlyBody(); });
+    document.getElementById("print-btn").addEventListener("click", () => printWithTitle(`Звіт за місяць — ${state.reportMonth.split("-").reverse().join(".")}`));
     await renderMonthlyBody();
   }
   async function renderMonthlyBody(){
