@@ -884,31 +884,33 @@
     }
     const clsList = state.classes.slice().sort();
     if(!clsList.length){ holder.innerHTML = `<div class="empty">Ще немає жодного класу.</div>`; return; }
-    let totals = {registered:0, present:0, absent:0};
+    let totals = {registered:0, abroad:0, individual:0, present:0, absent:0};
     ABSENCE_KEYS.forEach(a => totals[a.key] = 0);
     let tableRows = "";
     let blocks = "";
     clsList.forEach(cls => {
       const rec = records[cls];
       if(!rec){
-        tableRows += `<tr><td>${escapeHtml(cls)}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>${ABSENCE_KEYS.map(()=>`<td class="num">—</td>`).join("")}</tr>`;
+        tableRows += `<tr><td>${escapeHtml(cls)}</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>${ABSENCE_KEYS.map(()=>`<td class="num">—</td>`).join("")}</tr>`;
         return;
       }
       const present = computePresent(rec);
       const absentTotal = absentSum(rec);
       totals.registered += num(rec.registered);
+      totals.abroad += num(rec.abroad);
+      totals.individual += num(rec.individual);
       totals.present += present;
       totals.absent += absentTotal;
       ABSENCE_KEYS.forEach(a => totals[a.key] += num(rec[cnt(a.key)]));
-      tableRows += `<tr><td>${escapeHtml(cls)}</td><td class="num">${num(rec.registered)}</td><td class="num"><strong>${present}</strong></td><td class="num">${absentTotal}</td>
+      tableRows += `<tr><td>${escapeHtml(cls)}</td><td class="num">${num(rec.registered)}</td><td class="num">${num(rec.abroad)||"—"}</td><td class="num">${num(rec.individual)||"—"}</td><td class="num"><strong>${present}</strong></td><td class="num">${absentTotal}</td>
         ${ABSENCE_KEYS.map(a=>`<td class="num">${num(rec[cnt(a.key)])||"—"}</td>`).join("")}</tr>`;
       blocks += absenteeBlockHtml(cls, rec);
     });
-    tableRows += `<tr class="totals-row"><td>Разом</td><td class="num">${totals.registered}</td><td class="num">${totals.present}</td><td class="num">${totals.absent}</td>
+    tableRows += `<tr class="totals-row"><td>Разом</td><td class="num">${totals.registered}</td><td class="num">${totals.abroad||"—"}</td><td class="num">${totals.individual||"—"}</td><td class="num">${totals.present}</td><td class="num">${totals.absent}</td>
       ${ABSENCE_KEYS.map(a=>`<td class="num">${totals[a.key]||"—"}</td>`).join("")}</tr>`;
     holder.innerHTML = `
       <table class="data" style="margin-bottom:18px;">
-        <thead><tr><th>Клас</th><th>За реєстром</th><th>Присутні</th><th>Відсутні</th>${ABSENCE_KEYS.map(a=>`<th>${a.label}</th>`).join("")}</tr></thead>
+        <thead><tr><th>Клас</th><th>За реєстром</th><th>За кордоном</th><th>Індив. навч.</th><th>Присутні</th><th>Відсутні</th>${ABSENCE_KEYS.map(a=>`<th>${a.label}</th>`).join("")}</tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
       <h3>Відсутні учні за класами</h3>
